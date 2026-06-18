@@ -1,10 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+const PROTECTED_PATHS = ["/dashboard", "/distill"];
+
 export function middleware(request: NextRequest) {
-  const isDashboard = request.nextUrl.pathname.startsWith("/dashboard");
+  const { pathname } = request.nextUrl;
+  const isProtected = PROTECTED_PATHS.some((p) => pathname.startsWith(p));
   const hasSession = request.cookies.has("session");
 
-  if (isDashboard && !hasSession) {
+  if (isProtected && !hasSession) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/signin";
     return NextResponse.redirect(url);
