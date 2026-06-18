@@ -1,14 +1,44 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import {
+  Playfair_Display,
+  Libre_Baskerville,
+  Oswald,
+  Special_Elite,
+} from "next/font/google";
 import { Providers } from "./providers";
 import { cn } from "@/lib/utils";
 import "./globals.css";
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-head",
+  weight: ["400", "700", "900"],
+  style: ["normal", "italic"],
+});
+
+const baskerville = Libre_Baskerville({
+  subsets: ["latin"],
+  variable: "--font-body",
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+});
+
+const oswald = Oswald({
+  subsets: ["latin"],
+  variable: "--font-deck",
+  weight: ["400", "600", "700"],
+});
+
+const specialElite = Special_Elite({
+  subsets: ["latin"],
+  variable: "--font-stamp",
+  weight: ["400"],
+});
 
 export const metadata: Metadata = {
-  title: "Archetipo Workshop",
-  description: "Next.js + SQLite + Prisma + Tailwind",
+  title: "The News Distiller",
+  description:
+    "La verità in tutte le sue contraddizioni — ogni giorno, senza filtri",
 };
 
 export default function RootLayout({
@@ -17,8 +47,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable)}>
-      <body className="bg-background text-foreground">
+    <html
+      lang="it"
+      className={cn(
+        playfair.variable,
+        baskerville.variable,
+        oswald.variable,
+        specialElite.variable
+      )}
+    >
+      <body>
         <Providers>{children}</Providers>
       </body>
     </html>
