@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The News Distiller — Home</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .hero-grid { display: grid; grid-template-columns: 2fr 1.2fr; gap: 0; }
+    .teaser-image {
+      background: var(--paper-dark);
+      background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,.06) 4px, rgba(0,0,0,.06) 8px);
+      height: 160px;
+      display: flex; align-items: center; justify-content: center;
+      border: var(--rule-thin) solid var(--ink-faded);
+      margin-bottom: .5rem;
+    }
+    .teaser-caption {
+      font-family: var(--font-stamp);
+      font-size: .58rem;
+      text-align: center;
+      color: var(--ink-faded);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+    }
+    .exclusive-badge {
+      background: var(--red);
+      color: var(--paper);
+      font-family: var(--font-deck);
+      font-weight: 700;
+      font-size: .65rem;
+      text-transform: uppercase;
+      letter-spacing: .15em;
+      padding: .15rem .4rem;
+      display: inline-block;
+      margin-bottom: .3rem;
+    }
+    /* decorative corner marks */
+    .paper::before {
+      content: '★★★';
+      position: absolute;
+      top: .4rem; left: .8rem;
+      font-size: .55rem;
+      color: var(--ink-faded);
+      letter-spacing: .4em;
+    }
+    .paper::after {
+      content: '★★★';
+      position: absolute;
+      top: .4rem; right: .8rem;
+      font-size: .55rem;
+      color: var(--ink-faded);
+      letter-spacing: .4em;
+    }
+    .side-blurb {
+      background: var(--ink);
+      color: var(--paper);
+      padding: .6rem;
+      margin-bottom: .6rem;
+      font-family: var(--font-head);
+      font-style: italic;
+      font-size: .85rem;
+      line-height: 1.25;
+    }
+    .side-blurb strong {
+      font-style: normal;
+      font-size: .65rem;
+      font-family: var(--font-deck);
+      font-weight: 700;
+      letter-spacing: .12em;
+      display: block;
+      margin-bottom: .2rem;
+      background: var(--red);
+      padding: .1rem .3rem;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="paper">
+
+    <!-- MASTHEAD -->
+    <header class="masthead">
+      <div class="masthead-rule-top"></div>
+      <div class="masthead-rule-thin"></div>
+      <div class="masthead-meta">
+        <span>Vol. 1 — No. 1</span>
+        <span>Giovedì, 18 Giugno 1974</span>
+        <span>Lire 150</span>
+      </div>
+      <div class="masthead-title">The <em>News</em> Distiller</div>
+      <div class="masthead-tagline">La verità in tutte le sue contraddizioni — ogni giorno, senza filtri</div>
+    </header>
+
+    <!-- NAV -->
+    <nav class="navbar">
+      <div class="navbar-links">
+        <a href="index.html">Prima Pagina</a>
+        <a href="dashboard.html">Nuova Richiesta</a>
+        <a href="history.html">Archivio</a>
+      </div>
+      <div class="navbar-user">Non sei loggato — <a href="#auth">Accedi</a></div>
+    </nav>
+
+    <!-- RED BANNER -->
+    <div class="red-banner">★ Scopri cosa dicono davvero i giornali — e dove non sono d'accordo ★</div>
+
+    <div class="page-content">
+
+      <!-- HERO -->
+      <div class="hero-grid">
+
+        <!-- LEFT: main story teaser -->
+        <div class="col">
+          <span class="hl-kicker">Esclusivo — Distillato della Settimana</span>
+          <div class="hl-mega">Riforma<br>Pensioni:<br>Tutti Contro<br>Tutti</div>
+          <p class="hl-deck">Sindacati, governo e opposizione: tre letture della stessa proposta di legge, zero punti in comune. Il nostro distillatore ha analizzato 12 fonti in 4 minuti.</p>
+          <div class="byline">A cura del Distillatore — 18 Giugno 1974</div>
+
+          <div class="rule" style="margin-top:.8rem"></div>
+
+          <div class="col-grid-2" style="margin-top:.6rem">
+            <div>
+              <div class="teaser-image">
+                <span style="font-family:var(--font-stamp);font-size:.6rem;color:var(--ink-faded);text-align:center;padding:.5rem">[ foto: manifestazione<br>lavoratori — Roma ]</span>
+              </div>
+              <p style="margin:0">La <strong>CGIL</strong> parla di "attacco ai diritti acquisiti". Il Ministero risponde: "riforma necessaria". I giornali di destra esultano, quelli di sinistra gridano allo scandalo.</p>
+            </div>
+            <div>
+              <div class="pull-quote">"Chi ha ragione? Dipende da che giornale leggi."</div>
+              <p style="margin:0">Il Distillatore ha identificato <strong>4 posizioni distinte</strong> — nessuna delle quali coincide con le altre. <a href="result.html" style="color:var(--red);font-weight:bold">Leggi il distillato completo →</a></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: auth + sidebar -->
+        <div class="col">
+
+          <!-- Auth box -->
+          <div id="auth" class="auth-box" style="margin-bottom:.8rem">
+            <div class="auth-box-title">Accedi per distillare</div>
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-input" placeholder="marco@esempio.it">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <input type="password" class="form-input" placeholder="••••••••">
+            </div>
+            <a href="dashboard.html" class="btn btn-full btn-red">Entra nella Redazione</a>
+            <div style="text-align:center;margin-top:.5rem">
+              <a href="dashboard.html" style="font-family:var(--font-stamp);font-size:.6rem;color:var(--ink-faded);text-transform:uppercase;letter-spacing:.08em">Prima volta? Registrati gratis</a>
+            </div>
+          </div>
+
+          <!-- Side blurbs -->
+          <div class="side-blurb">
+            <strong>Cos'è il Distillatore?</strong>
+            Inserisci un argomento. Noi leggiamo il mondo intero per te. Ricevi il riassunto per email — con tutte le posizioni, nessuna esclusa.
+          </div>
+
+          <div class="rule-thin"></div>
+
+          <div style="font-family:var(--font-deck);font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:var(--ink-faded);margin-bottom:.4rem">Ultimi Distillati Pubblicati</div>
+
+          <div style="font-size:.72rem;border-bottom:var(--rule-thin) solid var(--ink-faded);padding:.35rem 0">
+            <strong style="font-family:var(--font-head);font-size:.85rem">Gaza: il cessate il fuoco</strong><br>
+            <span style="color:var(--ink-faded);font-style:italic">6 posizioni — 9 fonti analizzate</span>
+          </div>
+          <div style="font-size:.72rem;border-bottom:var(--rule-thin) solid var(--ink-faded);padding:.35rem 0">
+            <strong style="font-family:var(--font-head);font-size:.85rem">Intelligenza Artificiale e lavoro</strong><br>
+            <span style="color:var(--ink-faded);font-style:italic">4 posizioni — 11 fonti analizzate</span>
+          </div>
+          <div style="font-size:.72rem;padding:.35rem 0">
+            <strong style="font-family:var(--font-head);font-size:.85rem">Reddito di Cittadinanza: addio?</strong><br>
+            <span style="color:var(--ink-faded);font-style:italic">5 posizioni — 8 fonti analizzate</span>
+          </div>
+
+          <div class="rule-thin" style="margin-top:.6rem"></div>
+          <a href="dashboard.html" class="btn btn-outline btn-full mt-1">★ Richiedi il Tuo Distillato</a>
+        </div>
+      </div>
+
+      <!-- BOTTOM STRIP -->
+      <div class="rule-double" style="margin-top:.5rem"></div>
+      <div class="section-header">Come Funziona il Distillatore</div>
+      <div class="rule-thin"></div>
+
+      <div class="col-grid-3" style="margin-top:.2rem">
+        <div class="col" style="text-align:center">
+          <div style="font-size:1.8rem;margin-bottom:.3rem">①</div>
+          <div class="hl-minor">Inserisci<br>l'argomento</div>
+          <p style="font-size:.75rem;margin-top:.4rem">Digita qualsiasi tema di attualità — politica, economia, scienza. Scegli il tono: neutro, analitico, critico o divulgativo.</p>
+        </div>
+        <div class="col" style="text-align:center">
+          <div style="font-size:1.8rem;margin-bottom:.3rem">②</div>
+          <div class="hl-minor">Analizziamo<br>il mondo</div>
+          <p style="font-size:.75rem;margin-top:.4rem">Il Distillatore raccoglie le notizie più recenti da decine di fonti. L'intelligenza artificiale legge, confronta e identifica le divergenze.</p>
+        </div>
+        <div class="col" style="text-align:center">
+          <div style="font-size:1.8rem;margin-bottom:.3rem">③</div>
+          <div class="hl-minor">Ricevi<br>per email</div>
+          <p style="font-size:.75rem;margin-top:.4rem">Il distillato arriva nella tua casella. Sintesi generale, posizioni a confronto, fonti cliccabili per ogni affermazione.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="paper-footer">
+      <span>© 1974 The News Distiller — Tutti i diritti riservati</span>
+      <span>Powered by Anthropic Claude + Tavily</span>
+      <span>Fondato nel 1974 — Milano, Italia</span>
+    </footer>
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The News Distiller — Archivio</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .archive-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+    .archive-card {
+      border: var(--rule-medium) solid var(--ink);
+      padding: .75rem;
+      background: var(--paper);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: .4rem;
+    }
+    .archive-card::before {
+      content: '';
+      position: absolute;
+      top: 6px; left: 6px; right: -6px; bottom: -6px;
+      background: rgba(0,0,0,.08);
+      z-index: -1;
+    }
+    .archive-card.status-pending  { border-left: 4px solid #996600; }
+    .archive-card.status-running  { border-left: 4px solid #003D99; }
+    .archive-card.status-done     { border-left: 4px solid #006622; }
+    .archive-card.status-error    { border-left: 4px solid var(--red); }
+    .archive-topic {
+      font-family: var(--font-head);
+      font-size: 1.05rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      line-height: 1.1;
+    }
+    .archive-meta {
+      font-family: var(--font-stamp);
+      font-size: .58rem;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--ink-faded);
+    }
+    .archive-snippet {
+      font-size: .72rem;
+      color: var(--ink-mid);
+      line-height: 1.4;
+      font-style: italic;
+    }
+    .archive-snippet::first-letter { font-size: 1em; float: none; margin: 0; }
+    .archive-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: auto;
+      padding-top: .4rem;
+      border-top: var(--rule-thin) solid var(--ink-faded);
+    }
+    .toast {
+      background: var(--ink);
+      color: var(--paper);
+      font-family: var(--font-stamp);
+      font-size: .65rem;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      padding: .5rem 1rem;
+      margin-bottom: .5rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .toast-icon { font-size: 1rem; }
+    .page-header {
+      padding: .8rem 1.5rem;
+      border-bottom: var(--rule-medium) solid var(--ink);
+    }
+    .filters-bar {
+      display: flex;
+      gap: .4rem;
+      align-items: center;
+      padding: .4rem 1.5rem;
+      border-bottom: var(--rule-thin) solid var(--ink);
+      font-family: var(--font-deck);
+      font-size: .62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+    }
+    .filter-chip {
+      padding: .15rem .4rem;
+      border: var(--rule-thin) solid var(--ink);
+      cursor: pointer;
+      color: var(--ink);
+      background: transparent;
+    }
+    .filter-chip.active { background: var(--ink); color: var(--paper); }
+    @media (max-width:600px) {
+      .archive-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="paper">
+
+    <!-- MASTHEAD -->
+    <header class="masthead">
+      <div class="masthead-rule-top"></div>
+      <div class="masthead-rule-thin"></div>
+      <div class="masthead-meta">
+        <span>Vol. 1 — No. 1</span>
+        <span>Giovedì, 18 Giugno 1974</span>
+        <span>Lire 150</span>
+      </div>
+      <div class="masthead-title">The <em>News</em> Distiller</div>
+      <div class="masthead-tagline">La verità in tutte le sue contraddizioni — ogni giorno, senza filtri</div>
+    </header>
+
+    <!-- NAV -->
+    <nav class="navbar">
+      <div class="navbar-links">
+        <a href="index.html">Prima Pagina</a>
+        <a href="dashboard.html">Nuova Richiesta</a>
+        <a href="history.html">Archivio</a>
+      </div>
+      <div class="navbar-user">Marco Bianchi — <a href="index.html">Esci</a></div>
+    </nav>
+
+    <!-- TOAST (shown after submit) -->
+    <div class="toast" id="toast" style="display:none">
+      <span class="toast-icon">✉</span>
+      <span>Richiesta inviata. Il tuo distillato è in coda — riceverai una email al completamento.</span>
+    </div>
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <div class="rule-double"></div>
+      <div class="flex-between">
+        <div>
+          <span class="hl-kicker">I Tuoi Archivi</span>
+          <div class="hl-major">Storico Distillati</div>
+          <p class="hl-deck" style="margin-top:.2rem">7 distillati richiesti — 5 completati, 1 in elaborazione, 1 in coda</p>
+        </div>
+        <a href="dashboard.html" class="btn btn-red btn-xl">+ Nuovo</a>
+      </div>
+    </div>
+
+    <!-- FILTERS -->
+    <div class="filters-bar">
+      <span style="color:var(--ink-faded)">Filtra:</span>
+      <button class="filter-chip active" onclick="filterCards('all', this)">Tutti</button>
+      <button class="filter-chip" onclick="filterCards('done', this)">Completati</button>
+      <button class="filter-chip" onclick="filterCards('running', this)">In elaborazione</button>
+      <button class="filter-chip" onclick="filterCards('pending', this)">In coda</button>
+      <button class="filter-chip" onclick="filterCards('error', this)">Errori</button>
+    </div>
+
+    <div class="page-content">
+
+      <div class="archive-grid" id="archive-grid">
+
+        <!-- Card 1: IN CODA (just submitted) -->
+        <div class="archive-card status-pending" data-status="pending">
+          <div class="flex-between">
+            <div class="archive-topic">Intelligenza Artificiale e mercato del lavoro</div>
+            <span class="stamp stamp-pending">In Coda</span>
+          </div>
+          <div class="archive-meta">Oggi, 18:05 — Tono: analitico</div>
+          <div class="archive-snippet">In attesa di elaborazione. Il distillato arriverà per email al termine.</div>
+          <div class="archive-card-footer">
+            <span class="archive-meta">—</span>
+            <span class="btn btn-outline" style="font-size:.6rem;padding:.2rem .5rem;opacity:.4;cursor:not-allowed">Non ancora disponibile</span>
+          </div>
+        </div>
+
+        <!-- Card 2: IN ELABORAZIONE -->
+        <div class="archive-card status-running" data-status="running">
+          <div class="flex-between">
+            <div class="archive-topic">Gaza: trattative per il cessate il fuoco</div>
+            <span class="stamp stamp-running">In elaborazione</span>
+          </div>
+          <div class="archive-meta">Oggi, 17:51 — Tono: neutro</div>
+          <div class="archive-snippet">Harvesting in corso... analisi di 9 fonti identificate. Stima: ~2 minuti.</div>
+          <div class="archive-card-footer">
+            <span class="archive-meta" style="font-style:italic">⟳ Aggiornamento automatico</span>
+            <span class="btn btn-outline" style="font-size:.6rem;padding:.2rem .5rem;opacity:.4;cursor:not-allowed">In attesa...</span>
+          </div>
+        </div>
+
+        <!-- Card 3: COMPLETATO -->
+        <div class="archive-card status-done" data-status="done">
+          <div class="flex-between">
+            <div class="archive-topic">Riforma delle Pensioni</div>
+            <span class="stamp stamp-done">Completato</span>
+          </div>
+          <div class="archive-meta">Ieri, 17:42 — Tono: neutro — 12 fonti — 4 posizioni</div>
+          <div class="archive-snippet">Governo, sindacati, liberali e generazione under-40: quattro letture incompatibili della stessa proposta di legge.</div>
+          <div class="archive-card-footer">
+            <span class="archive-meta">4 min 17 sec</span>
+            <a href="result.html" class="btn" style="font-size:.6rem;padding:.2rem .5rem">Leggi il Distillato →</a>
+          </div>
+        </div>
+
+        <!-- Card 4: COMPLETATO -->
+        <div class="archive-card status-done" data-status="done">
+          <div class="flex-between">
+            <div class="archive-topic">Elezioni europee 2024: i risultati</div>
+            <span class="stamp stamp-done">Completato</span>
+          </div>
+          <div class="archive-meta">2 giorni fa — Tono: analitico — 11 fonti — 5 posizioni</div>
+          <div class="archive-snippet">La destra avanza in Francia e Germania, ma i dati vengono letti con ottimismo da destra e con allarme da sinistra. Chi ha ragione?</div>
+          <div class="archive-card-footer">
+            <span class="archive-meta">6 min 02 sec</span>
+            <a href="result.html" class="btn" style="font-size:.6rem;padding:.2rem .5rem">Leggi →</a>
+          </div>
+        </div>
+
+        <!-- Card 5: COMPLETATO -->
+        <div class="archive-card status-done" data-status="done">
+          <div class="flex-between">
+            <div class="archive-topic">Reddito di cittadinanza: la fine</div>
+            <span class="stamp stamp-done">Completato</span>
+          </div>
+          <div class="archive-meta">3 giorni fa — Tono: critico — 8 fonti — 3 posizioni</div>
+          <div class="archive-snippet">Il governo dice "era inefficace". I beneficiari dicono "era l'unico sostegno". I numeri INPS raccontano una terza storia.</div>
+          <div class="archive-card-footer">
+            <span class="archive-meta">3 min 44 sec</span>
+            <a href="result.html" class="btn" style="font-size:.6rem;padding:.2rem .5rem">Leggi →</a>
+          </div>
+        </div>
+
+        <!-- Card 6: COMPLETATO -->
+        <div class="archive-card status-done" data-status="done">
+          <div class="flex-between">
+            <div class="archive-topic">Migrazione irregolare nel Mediterraneo</div>
+            <span class="stamp stamp-done">Completato</span>
+          </div>
+          <div class="archive-meta">5 giorni fa — Tono: neutro — 10 fonti — 4 posizioni</div>
+          <div class="archive-snippet">Quattro narrazioni parallele: umanitaria, securitaria, economica e geopolitica. Nessuna parla delle altre.</div>
+          <div class="archive-card-footer">
+            <span class="archive-meta">5 min 11 sec</span>
+            <a href="result.html" class="btn" style="font-size:.6rem;padding:.2rem .5rem">Leggi →</a>
+          </div>
+        </div>
+
+        <!-- Card 7: ERRORE -->
+        <div class="archive-card status-error" data-status="error">
+          <div class="flex-between">
+            <div class="archive-topic">Crisi del governo Draghi</div>
+            <span class="stamp stamp-error">Errore</span>
+          </div>
+          <div class="archive-meta">1 settimana fa — Tono: divulgativo</div>
+          <div class="archive-snippet">Elaborazione fallita: timeout nella ricerca delle fonti. Nessun risultato inviato per email.</div>
+          <div class="archive-card-footer">
+            <span class="archive-meta" style="color:var(--red);font-style:italic">Harvesting timeout</span>
+            <a href="dashboard.html" class="btn btn-red" style="font-size:.6rem;padding:.2rem .5rem">Riprova →</a>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="paper-footer">
+      <span>© 1974 The News Distiller</span>
+      <span>7 distillati — 5 completati</span>
+      <span>Milano, Italia</span>
+    </footer>
+
+  </div>
+
+  <script>
+    // Show toast if coming from submit
+    const params = new URLSearchParams(location.search);
+    if (params.get('submitted')) {
+      const t = document.getElementById('toast');
+      t.style.display = 'flex';
+      setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .5s'; setTimeout(() => t.remove(), 600); }, 4000);
+    }
+
+    // Filter
+    function filterCards(status, btn) {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.archive-card').forEach(card => {
+        card.style.display = (status === 'all' || card.dataset.status === status) ? '' : 'none';
+      });
+    }
+  </script>
+</body>
+</html>

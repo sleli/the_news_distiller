@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The News Distiller — Nuova Richiesta</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .form-layout { display: grid; grid-template-columns: 1.6fr 1fr; gap: 0; }
+    .submit-area { border-top: var(--rule-medium) solid var(--ink); padding-top: .8rem; margin-top: .8rem; }
+    .ticker {
+      background: var(--ink);
+      color: var(--paper);
+      font-family: var(--font-stamp);
+      font-size: .62rem;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      padding: .25rem 1rem;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .ticker-inner {
+      display: inline-block;
+      animation: ticker 18s linear infinite;
+    }
+    @keyframes ticker {
+      from { transform: translateX(100vw); }
+      to   { transform: translateX(-200%); }
+    }
+    .tone-selected-preview {
+      border: var(--rule-medium) solid var(--ink);
+      background: var(--paper-mid);
+      padding: .6rem;
+      margin-top: .5rem;
+      font-style: italic;
+      font-size: .75rem;
+      min-height: 60px;
+    }
+    .sidebar-tip {
+      border-left: 4px solid var(--red);
+      padding-left: .6rem;
+      margin-bottom: .8rem;
+      font-size: .75rem;
+      font-style: italic;
+      color: var(--ink-mid);
+    }
+    .char-count {
+      font-family: var(--font-stamp);
+      font-size: .6rem;
+      color: var(--ink-faded);
+      text-align: right;
+      margin-top: .2rem;
+      text-transform: uppercase;
+    }
+    @media (max-width:640px) {
+      .form-layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="paper">
+
+    <!-- MASTHEAD -->
+    <header class="masthead">
+      <div class="masthead-rule-top"></div>
+      <div class="masthead-rule-thin"></div>
+      <div class="masthead-meta">
+        <span>Vol. 1 — No. 1</span>
+        <span>Giovedì, 18 Giugno 1974</span>
+        <span>Lire 150</span>
+      </div>
+      <div class="masthead-title">The <em>News</em> Distiller</div>
+      <div class="masthead-tagline">La verità in tutte le sue contraddizioni — ogni giorno, senza filtri</div>
+    </header>
+
+    <!-- NAV -->
+    <nav class="navbar">
+      <div class="navbar-links">
+        <a href="index.html">Prima Pagina</a>
+        <a href="dashboard.html">Nuova Richiesta</a>
+        <a href="history.html">Archivio</a>
+      </div>
+      <div class="navbar-user">Marco Bianchi — <a href="index.html">Esci</a></div>
+    </nav>
+
+    <!-- TICKER -->
+    <div class="ticker">
+      <span class="ticker-inner">
+        ULTIME ORE: Distillato su "NATO e Ucraina" completato — 8 posizioni identificate &nbsp;★&nbsp; In elaborazione: "Migrazione clandestina" — stima 3 min &nbsp;★&nbsp; Nuovo: il Distillatore ora supporta argomenti in 12 lingue &nbsp;★&nbsp;
+      </span>
+    </div>
+
+    <div class="page-content">
+
+      <!-- PAGE HEADER -->
+      <div class="rule-double"></div>
+      <span class="hl-kicker">Redazione — Invio Segnalazione</span>
+      <div class="hl-mega" style="line-height:1">Invia la Tua<br>Richiesta</div>
+      <p class="hl-deck">Il Distillatore raccoglierà le notizie più fresche, le analizzerà e ti recapiterà il riassunto per email. Solitamente in meno di 5 minuti.</p>
+      <div class="byline">Accesso riservato agli abbonati — Marco Bianchi, Milano</div>
+      <div class="rule" style="margin-top:.6rem;margin-bottom:.6rem"></div>
+
+      <div class="form-layout">
+
+        <!-- LEFT: form -->
+        <div class="col">
+
+          <form onsubmit="handleSubmit(event)">
+
+            <!-- Topic -->
+            <div class="form-group">
+              <label class="form-label" for="topic">
+                ★ Argomento da distillare
+              </label>
+              <textarea
+                id="topic"
+                class="form-textarea"
+                placeholder="Es. «Riforma pensioni 2024», «Intelligenza artificiale e lavoro», «Politica estera italiana»..."
+                oninput="updateCount(this)"
+                maxlength="300"
+                style="min-height:80px"
+              ></textarea>
+              <div class="char-count"><span id="char-count">0</span> / 300 caratteri</div>
+            </div>
+
+            <!-- Tone selector -->
+            <div class="form-group">
+              <label class="form-label">Tono del distillato</label>
+              <div class="tone-grid">
+
+                <div>
+                  <input type="radio" name="tone" id="tone-neutral" value="neutro" class="tone-option" checked onchange="updateTonePreview(this)">
+                  <label for="tone-neutral" class="tone-label">
+                    <span class="tone-name">◉ Neutro</span>
+                    <span class="tone-desc">Fattuale, bilanciato, senza giudizi di valore. Default.</span>
+                  </label>
+                </div>
+
+                <div>
+                  <input type="radio" name="tone" id="tone-analytic" value="analitico" class="tone-option" onchange="updateTonePreview(this)">
+                  <label for="tone-analytic" class="tone-label">
+                    <span class="tone-name">◉ Analitico</span>
+                    <span class="tone-desc">Dati, prove, ragionamento. Per chi vuole capire il perché.</span>
+                  </label>
+                </div>
+
+                <div>
+                  <input type="radio" name="tone" id="tone-divulgative" value="divulgativo" class="tone-option" onchange="updateTonePreview(this)">
+                  <label for="tone-divulgative" class="tone-label">
+                    <span class="tone-name">◉ Divulgativo</span>
+                    <span class="tone-desc">Accessibile e semplificato. Perfetto per chi parte da zero.</span>
+                  </label>
+                </div>
+
+                <div>
+                  <input type="radio" name="tone" id="tone-critical" value="critico" class="tone-option" onchange="updateTonePreview(this)">
+                  <label for="tone-critical" class="tone-label">
+                    <span class="tone-name">◉ Critico</span>
+                    <span class="tone-desc">Mette in luce contraddizioni, omissioni e punti deboli.</span>
+                  </label>
+                </div>
+
+              </div>
+
+              <!-- Tone preview -->
+              <div class="tone-selected-preview" id="tone-preview">
+                <strong style="font-family:var(--font-deck);font-size:.62rem;text-transform:uppercase;letter-spacing:.12em;font-style:normal">Tono selezionato: NEUTRO</strong><br>
+                Il distillato presenterà le posizioni in modo fattuale e bilanciato, senza enfatizzare alcun punto di vista. Ideale per formarsi un'opinione autonoma.
+              </div>
+            </div>
+
+            <!-- Submit -->
+            <div class="submit-area">
+              <button type="submit" class="btn btn-red btn-full btn-xl">
+                ★ Invia al Distillatore ★
+              </button>
+              <p style="font-size:.65rem;color:var(--ink-faded);text-align:center;margin-top:.4rem;font-style:italic">
+                Riceverai la conferma immediata. Il distillato arriverà per email quando pronto.
+              </p>
+            </div>
+
+          </form>
+
+        </div>
+
+        <!-- RIGHT: sidebar -->
+        <div class="col">
+
+          <div style="font-family:var(--font-deck);font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:var(--ink-faded);margin-bottom:.5rem">Suggerimenti dalla Redazione</div>
+
+          <div class="sidebar-tip">
+            <strong>Sii specifico:</strong> "Intelligenza artificiale" è vago. "Impatto dell'IA sul mercato del lavoro in Italia 2024" produce un distillato molto più ricco.
+          </div>
+          <div class="sidebar-tip">
+            <strong>Argomenti di attualità:</strong> Il Distillatore lavora meglio su notizie delle ultime settimane. Temi storici o accademici potrebbero produrre risultati meno aggiornati.
+          </div>
+          <div class="sidebar-tip">
+            <strong>Usa il tono critico con cautela:</strong> Il tono critico evidenzia le contraddizioni — utile per approfondire, meno adatto a chi si avvicina a un tema per la prima volta.
+          </div>
+
+          <div class="rule-thin"></div>
+
+          <div style="font-family:var(--font-deck);font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:var(--ink-faded);margin:0.6rem 0 .4rem">Le Tue Ultime Richieste</div>
+
+          <div class="card" style="padding:.5rem">
+            <div class="flex-between">
+              <div style="font-family:var(--font-head);font-size:.85rem;font-weight:900">Riforma Pensioni</div>
+              <span class="stamp stamp-done">Completato</span>
+            </div>
+            <div class="card-meta" style="margin-top:.3rem">Ieri, 17:42 — Tono: neutro</div>
+            <div style="margin-top:.4rem"><a href="result.html" class="btn btn-outline" style="font-size:.6rem;padding:.2rem .5rem">Leggi →</a></div>
+          </div>
+
+          <div class="card" style="padding:.5rem">
+            <div class="flex-between">
+              <div style="font-family:var(--font-head);font-size:.85rem;font-weight:900">Elezioni europee</div>
+              <span class="stamp stamp-done">Completato</span>
+            </div>
+            <div class="card-meta" style="margin-top:.3rem">2 giorni fa — Tono: analitico</div>
+            <div style="margin-top:.4rem"><a href="result.html" class="btn btn-outline" style="font-size:.6rem;padding:.2rem .5rem">Leggi →</a></div>
+          </div>
+
+          <div class="rule-thin" style="margin-top:.3rem"></div>
+          <a href="history.html" style="font-family:var(--font-stamp);font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-mid)">→ Vedi archivio completo</a>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="paper-footer">
+      <span>© 1974 The News Distiller</span>
+      <span>Il Distillatore è una macchina — tu sei il giudice</span>
+      <span>Milano, Italia</span>
+    </footer>
+
+  </div>
+
+  <script>
+    const tonePreviews = {
+      neutro: { label: 'NEUTRO', desc: 'Il distillato presenterà le posizioni in modo fattuale e bilanciato, senza enfatizzare alcun punto di vista. Ideale per formarsi un\'opinione autonoma.' },
+      analitico: { label: 'ANALITICO', desc: 'Il distillato si concentrerà su dati, prove e catene di ragionamento. Ogni posizione sarà valutata sulla base delle evidenze citate dalle fonti.' },
+      divulgativo: { label: 'DIVULGATIVO', desc: 'Il distillato sarà accessibile e semplificato, con spiegazioni dei concetti chiave. Adatto a chi si avvicina al tema per la prima volta.' },
+      critico: { label: 'CRITICO', desc: 'Il distillato metterà in evidenza contraddizioni, omissioni e punti deboli di ogni posizione. Utile per approfondire e contestare le narrative dominanti.' }
+    };
+
+    function updateTonePreview(el) {
+      const t = tonePreviews[el.value];
+      document.getElementById('tone-preview').innerHTML =
+        `<strong style="font-family:var(--font-deck);font-size:.62rem;text-transform:uppercase;letter-spacing:.12em;font-style:normal">Tono selezionato: ${t.label}</strong><br>${t.desc}`;
+    }
+
+    function updateCount(el) {
+      document.getElementById('char-count').textContent = el.value.length;
+    }
+
+    function handleSubmit(e) {
+      e.preventDefault();
+      const topic = document.getElementById('topic').value.trim();
+      if (!topic) { alert('Inserisci un argomento prima di inviare.'); return; }
+      window.location.href = 'history.html?submitted=1';
+    }
+  </script>
+</body>
+</html>
