@@ -19,3 +19,5 @@ prisma/*.db-journal
 .github/
 .gemini/
 .plans
+.vscode/
+playwright-report/
