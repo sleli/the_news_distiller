@@ -1,0 +1,31 @@
+schema: archetipo/spec/v2
+code: US-012
+title: Implementare la gestione degli errori e dei job bloccati
+epic:
+  code: EP-003
+  title: Elaborazione Asincrona
+priority: MEDIUM
+points: 2
+status: TODO
+blocked_by:
+  - US-010
+scope: MVP
+body: |-
+  #### US-012: Implementare la gestione degli errori e dei job bloccati
+
+  **Epic:** EP-003 | **Priorità:** MEDIUM | **Punti:** 2 | **Stato:** TODO
+  **Bloccato da:** US-010
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio che il worker gestisca gli errori in modo robusto e aggiorni lo status dei job in modo coerente,
+  in modo da garantire che nessun job rimanga bloccato in stato `RUNNING` indefinitamente.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, un job che fallisce per assenza di articoli Tavily viene impostato a `FAILED` con messaggio; un job bloccato in `RUNNING` da più di 10 minuti viene automaticamente reimpostato al ciclo successivo.
+
+  **Criteri di Accettazione**
+  - [ ] Errori da Tavily (timeout, zero risultati) impostano il job a `FAILED` con messaggio d'errore persistito
+  - [ ] Errori da Claude (risposta invalida, API error) impostano il job a `FAILED`
+  - [ ] Errori da Resend non impostano il job a `FAILED` (il risultato è già salvato); l'errore viene solo loggato
+  - [ ] Job in status `RUNNING` da più di 10 minuti vengono reimpostati a `PENDING` o `FAILED` al prossimo ciclo di polling

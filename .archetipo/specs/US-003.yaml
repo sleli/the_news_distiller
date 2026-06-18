@@ -1,0 +1,28 @@
+schema: archetipo/spec/v2
+code: US-003
+title: Implementare il client Tavily per il harvesting di articoli
+epic:
+  code: EP-001
+  title: Fondamenta e Infrastruttura Asincrona
+priority: HIGH
+points: 2
+status: TODO
+scope: MVP
+body: |-
+  #### US-003: Implementare il client Tavily per il harvesting di articoli
+
+  **Epic:** EP-001 | **Priorità:** HIGH | **Punti:** 2 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio un client Tavily in `src/lib/tavily.ts` che recuperi articoli recenti su un argomento,
+  in modo da fornire al worker le fonti necessarie per la distillazione.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, uno sviluppatore può chiamare `searchArticles("riforma pensioni", 10)` in un contesto server e ricevere un array di oggetti con title, url e content.
+
+  **Criteri di Accettazione**
+  - [ ] `searchArticles(topic: string, n: number)` restituisce un array di `{ title, url, content }` chiamando l'API Tavily
+  - [ ] `TAVILY_API_KEY` è letta esclusivamente da variabili d'ambiente server-side e non è mai esposta al bundle client
+  - [ ] Se `TAVILY_API_KEY` non è configurata, il modulo lancia un errore descrittivo all'inizializzazione

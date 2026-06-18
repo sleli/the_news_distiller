@@ -1,0 +1,36 @@
+schema: archetipo/plan/v2
+spec_code: US-007
+body: "# US-007: Creare la pagina e il form di richiesta distillato — Piano di Implementazione\n\n**Generato da:** ARchetipo Planning Team\n**Data:** 2026-06-18\n\n---\n\n## Spec\n\n**Epic:** EP-002 — Richiesta Distillato\n**Priorità:** HIGH | **Punti:** 3\n\n**User Story**\nIn qualità di Marco, utente autenticato,\nvoglio una pagina con un form dove posso inserire un argomento e scegliere il tono del distillato,\nin modo da inviare una richiesta personalizzata al sistema.\n\n**Criteri di Accettazione**\n- [ ] La pagina `/distill` mostra un campo di testo per l'argomento (max 300 caratteri, obbligatorio)\n- [ ] Sono disponibili 4 opzioni di tono: Neutro (default), Analitico, Divulgativo, Critico\n- [ ] Selezionando un tono appare una breve descrizione di cosa produce\n- [ ] Il pulsante di submit è disabilitato se il campo argomento è vuoto\n- [ ] La pagina è accessibile solo agli utenti autenticati (redirect per i non loggati)\n\n---\n\n## Soluzione Tecnica\n\nLa feature si compone di un Server Component e di un Client Component, replicando esattamente il pattern di `src/app/dashboard/page.tsx` già presente nel boilerplate.\n\n- **`src/app/distill/page.tsx`** (Server Component): chiama `getCurrentUser()` da `@/lib/auth`; se `null`, esegue `redirect(\"/auth/signin\")`. Renderizza `<DistillForm user={user} />` passando i dati dell'utente come props.\n- **`src/components/distill/DistillForm.tsx`** (Client Component, `\"use client\"`): gestisce lo stato locale `topic` (string, default `\"\"`) e `tone` (string, default `\"neutro\"`). Il submit è disabilitato quando `topic.trim() === \"\"`.\n- **Descrizioni dei toni**: definite come oggetto costante locale `TONE_DESCRIPTIONS` nel componente per questa spec. In US-004 verranno sostituite dalle costanti di `src/lib/tones.ts` senza modifiche all'interfaccia del componente.\n- **Selettore tono**: quattro `<input type=\"radio\" name=\"tone\">` stilizzati con Tailwind (label cliccabile, bordo evidenziato su selezione). Il tono selezionato aggiorna la descrizione visualizzata sotto il gruppo.\n- **Contatore caratteri**: aggiornato in tempo reale (`topic.length / 300`), con indicatore visivo di avvicinamento al limite.\n- **Componenti UI disponibili**: `Textarea`, `Button`, `Label`, `Card`, `CardHeader`, `CardContent` da `src/components/ui/` (shadcn/ui). Per i radio button si usa HTML nativo stilizzato con Tailwind — non dipende da librerie esterne.\n- **Submit action**: il form chiama `POST /api/distill` via `fetch`. Per questa spec, la risposta 404 (US-008 non ancora implementata) viene gestita mostrando un messaggio di errore generico — il componente non crasha.\n- **Middleware**: la protezione di `/distill` è implementata in US-002. Se US-002 non è ancora completata, il Server Component fa il redirect direttamente come guardia aggiuntiva.\n\n> \U0001F3A8 Mockup di questa spec disponibili in `docs/mockups/US-007/`. Mockup del flusso completo MVP in `docs/mockups/news-distiller-mvp/dashboard.html`.\n\n---\n\n## Strategia di Test\n\nQuesta spec introduce una nuova pagina con interazione utente — la copertura richiede test e2e. Nessun framework di test è attualmente installato nel progetto: Playwright viene aggiunto come prima task.\n\n- **Playwright e2e**: simulazione dei flussi utente completi sulla pagina `/distill` con video recording abilitato.\n- **Nessun test unitario separato**: la logica di disabilitazione del submit e la visualizzazione della descrizione del tono sono verificate nell'e2e scenario — non richiedono unit test isolati.\n\n### Test E2E — Simulazione Utente\n\n**Framework:** Playwright (da installare in TASK-01)\n**Video recording:** Abilitato per tutti gli scenari\n**Output video:** `docs/test-results/US-007/`\n\n| Scenario | Flusso utente |\n|---|---|\n| Redirect utente non autenticato | Utente non loggato visita `/distill` → viene reindirizzato a `/auth/signin` |\n| Accesso pagina autenticato | Marco accede con credenziali valide → naviga a `/distill` → vede il form con campo argomento e selettore tono |\n| Submit disabilitato su campo vuoto | Marco apre la pagina senza compilare → il pulsante submit è disabilitato; dopo aver digitato almeno un carattere → il pulsante si abilita |\n| Interazione selettore tono | Marco seleziona \"Analitico\" → vede la descrizione aggiornata; seleziona \"Critico\" → vede la nuova descrizione |\n| Limite caratteri | Marco digita 300 caratteri → il contatore mostra 300/300; il campo non accetta ulteriori input |\n\n---\n\n_Piano generato via ARchetipo Planning — 2026-06-18_"
+tasks:
+  - id: TASK-01
+    title: Installare e configurare Playwright per i test e2e
+    description: 'Installare @playwright/test come devDependency. Creare playwright.config.ts con webServer puntato al dev server Next.js, outputDir a docs/test-results/, video: ''on'' per tutti i progetti. Aggiungere lo script ''test:e2e'' in package.json.'
+    type: Impl
+    status: TODO
+  - id: TASK-02
+    title: Creare la pagina src/app/distill/page.tsx
+    description: Creare il Server Component src/app/distill/page.tsx. Chiama getCurrentUser() da @/lib/auth; se null, redirect('/auth/signin'). Renderizza <DistillForm user={user} /> passando i dati dell'utente come props. Seguire il pattern di src/app/dashboard/page.tsx.
+    type: Impl
+    status: TODO
+  - id: TASK-03
+    title: Creare il Client Component DistillForm con campo argomento
+    description: Creare src/components/distill/DistillForm.tsx con direttiva 'use client'. Gestire stato locale topic (string, default '') e tone (string, default 'neutro'). Rendere il campo Textarea con maxLength=300, contatore caratteri in tempo reale, e il pulsante submit disabilitato quando topic.trim() === ''. Usare shadcn/ui Textarea, Button, Label, Card da src/components/ui/.
+    type: Impl
+    status: TODO
+    dependencies:
+      - TASK-02
+  - id: TASK-04
+    title: Aggiungere selettore del tono con descrizioni dinamiche
+    description: 'Aggiungere al componente DistillForm il selettore dei 4 toni (Neutro default, Analitico, Divulgativo, Critico) come radio button stilizzati con Tailwind. Definire la costante TONE_DESCRIPTIONS nel componente. Visualizzare la descrizione del tono corrente sotto il gruppo. Riferimento visivo: docs/mockups/US-007/index.html.'
+    type: Impl
+    status: TODO
+    dependencies:
+      - TASK-03
+  - id: TASK-05
+    title: Scrivere i test e2e Playwright per il flusso della pagina /distill
+    description: 'Creare tests/e2e/distill-form.spec.ts con i 5 scenari definiti nella strategia di test: redirect non autenticato, accesso autenticato, submit disabilitato, interazione tono, limite caratteri. Abilitare video recording con output in docs/test-results/US-007/. Eseguire con npm run test:e2e.'
+    type: Test
+    status: TODO
+    dependencies:
+      - TASK-01
+      - TASK-04

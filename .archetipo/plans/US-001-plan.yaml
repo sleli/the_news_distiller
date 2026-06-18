@@ -1,0 +1,81 @@
+schema: archetipo/plan/v2
+spec_code: US-001
+body: |-
+  # US-001: Aggiungere le tabelle DistillJob e DistillSource allo schema Prisma — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-18
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-001 — Fondamenta e Infrastruttura Asincrona
+  **Priorità:** HIGH | **Punti:** 3
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio che le tabelle `DistillJob` e `DistillSource` esistano nel database con i campi corretti,
+  in modo da poter persistere le richieste di distillazione, il loro stato e le fonti associate.
+
+  **Criteri di Accettazione**
+  - [ ] `DistillJob` ha i campi: `id`, `userId` (FK → User), `topic`, `tone`, `status` (PENDING/RUNNING/DONE/FAILED), `result` (JSON nullable), `createdAt`, `updatedAt`
+  - [ ] `DistillSource` ha i campi: `id`, `jobId` (FK → DistillJob), `url`, `title`, `excerpt`, `position`
+  - [ ] Le relazioni User→DistillJob e DistillJob→DistillSource sono definite nello schema Prisma
+  - [ ] `npx prisma db push` completa senza errori su database SQLite
+
+  ---
+
+  ## Soluzione Tecnica
+
+  Lo schema Prisma viene esteso con due nuovi modelli (`DistillJob` e `DistillSource`) seguendo le convenzioni del boilerplate esistente (`User`, `Session`).
+
+  - **Tipo `status`:** SQLite non supporta enum nativi in Prisma. Il campo `status` è modellato come `String` con default `"PENDING"`. I valori ammessi (`PENDING`, `RUNNING`, `DONE`, `FAILED`) sono costanti applicative — la validazione avviene nel codice, non nel DB.
+  - **Campo `result`:** Il tipo `Json?` di Prisma è supportato su SQLite (serializzato come TEXT internamente). Conterrà l'output strutturato della distillazione AI al completamento del job.
+  - **Campo `tone`:** `String` con valori attesi `neutro`, `analitico`, `divulgativo`, `critico`. Validazione applicativa in US-008.
+  - **Cascate:** `DistillJob` usa `onDelete: Cascade` rispetto a `User` (eliminare un utente elimina i suoi job). `DistillSource` usa `onDelete: Cascade` rispetto a `DistillJob`.
+  - **Naming:** modelli in PascalCase, tabelle in snake_case via `@@map("distill_jobs")` e `@@map("distill_sources")` per coerenza con `@@map("users")` e `@@map("sessions")` esistenti.
+  - **Rigenerazione client:** dopo `prisma db push` è obbligatorio eseguire `prisma generate` per aggiornare il tipo `PrismaClient` con i nuovi modelli.
+
+  ---
+
+  ## Strategia di Test
+
+  Questa spec non coinvolge UI — la copertura è interamente tramite test di integrazione sul layer database.
+
+  - **Test di creazione**: creare un `User`, poi un `DistillJob` associato con tutti i valori di `status`, poi un `DistillSource` associato. Verificare che tutti i campi siano persistiti correttamente e recuperabili.
+  - **Test delle relazioni**: verificare che `prisma.distillJob.findMany({ where: { userId }, include: { sources: true } })` restituisca job e fonti correlate.
+  - **Test del cascade delete su DistillSource**: eliminare un `DistillJob` e verificare che i `DistillSource` associati siano stati eliminati automaticamente.
+  - **Test del cascade delete su DistillJob**: eliminare un `User` e verificare che i `DistillJob` associati (e i loro `DistillSource`) siano stati eliminati.
+  - **Nota sul framework**: non è necessario installare un runner di test separato per questa spec — i test vengono scritti come script TypeScript in `scripts/test-schema.ts` eseguibili con `npx ts-node`. Playwright verrà installato in US-007 e potrà essere usato per test futuri anche su layer non-UI.
+
+  ---
+
+  _Piano generato via ARchetipo Planning — 2026-06-18_
+tasks:
+  - id: TASK-01
+    title: Aggiungere il modello DistillJob a prisma/schema.prisma
+    description: 'Aggiungere il modello DistillJob con i campi: id (String @id @default(uuid())), userId (String), topic (String), tone (String), status (String @default("PENDING")), result (Json?), createdAt (DateTime @default(now())), updatedAt (DateTime @updatedAt). Aggiungere la relazione verso User con onDelete: Cascade. Aggiungere il campo distillJobs DistillJob[] al modello User esistente. Aggiungere @@map("distill_jobs").'
+    type: Impl
+    status: TODO
+  - id: TASK-02
+    title: Aggiungere il modello DistillSource e completare le relazioni
+    description: 'Aggiungere il modello DistillSource con i campi: id (String @id @default(uuid())), jobId (String), url (String), title (String), excerpt (String), position (String). Aggiungere la relazione verso DistillJob con onDelete: Cascade. Aggiungere il campo sources DistillSource[] al modello DistillJob. Aggiungere @@map("distill_sources").'
+    type: Impl
+    status: TODO
+    dependencies:
+      - TASK-01
+  - id: TASK-03
+    title: Applicare la migrazione e rigenerare il client Prisma
+    description: Eseguire npx prisma db push per applicare i nuovi modelli al database SQLite. Eseguire npx prisma generate per aggiornare il tipo PrismaClient. Verificare che entrambi i comandi completino senza errori.
+    type: Impl
+    status: TODO
+    dependencies:
+      - TASK-02
+  - id: TASK-04
+    title: Scrivere il test di integrazione per DistillJob e DistillSource
+    description: 'Creare scripts/test-schema.ts con test che: (1) creano User → DistillJob → DistillSource e verificano tutti i campi, (2) verificano le relazioni con include, (3) verificano il cascade delete di DistillSource alla eliminazione del job, (4) verificano il cascade delete di DistillJob alla eliminazione dell''utente. Eseguibile con npx ts-node scripts/test-schema.ts.'
+    type: Test
+    status: TODO
+    dependencies:
+      - TASK-03

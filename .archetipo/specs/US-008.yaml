@@ -1,0 +1,30 @@
+schema: archetipo/spec/v2
+code: US-008
+title: Implementare l'API route POST /api/distill per la creazione del job
+epic:
+  code: EP-002
+  title: Richiesta Distillato
+priority: HIGH
+points: 3
+status: TODO
+scope: MVP
+body: |-
+  #### US-008: Implementare l'API route POST /api/distill per la creazione del job
+
+  **Epic:** EP-002 | **Priorità:** HIGH | **Punti:** 3 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di Marco, utente autenticato,
+  voglio che il submit del form crei un job nel database con status PENDING,
+  in modo che il sistema possa elaborarlo in background e notificarmi al completamento.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, un `POST /api/distill` con `{ topic: "riforma pensioni", tone: "neutro" }` e sessione valida crea un `DistillJob` con status `PENDING` e restituisce `{ jobId, message }`.
+
+  **Criteri di Accettazione**
+  - [ ] `POST /api/distill` con body `{ topic, tone }` validi crea un `DistillJob` associato all'utente autenticato con status `PENDING`
+  - [ ] Richieste con topic vuoto o tone non valido (non in: neutro/analitico/divulgativo/critico) restituiscono 400 con messaggio d'errore
+  - [ ] Richieste senza sessione valida restituiscono 401
+  - [ ] La risposta di successo include `{ jobId: string, message: string }`
+  - [ ] Un utente non può creare job per un altro utente né accedere ai job altrui

@@ -1,0 +1,31 @@
+schema: archetipo/spec/v2
+code: US-009
+title: Mostrare la conferma in-app dopo l'invio della richiesta
+epic:
+  code: EP-002
+  title: Richiesta Distillato
+priority: HIGH
+points: 2
+status: TODO
+blocked_by:
+  - US-008
+scope: MVP
+body: |-
+  #### US-009: Mostrare la conferma in-app dopo l'invio della richiesta
+
+  **Epic:** EP-002 | **Priorità:** HIGH | **Punti:** 2 | **Stato:** TODO
+  **Bloccato da:** US-008
+
+  **User Story**
+  In qualità di Marco, utente autenticato,
+  voglio vedere una conferma immediata dopo aver inviato la richiesta,
+  in modo da sapere che il distillato è in elaborazione e che riceverò una email al completamento.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, Marco invia il form e viene portato in una pagina che mostra il job appena creato con status "In coda" e il messaggio "Riceverai una email quando il distillato è pronto".
+
+  **Criteri di Accettazione**
+  - [ ] Dopo il submit del form, l'utente è reindirizzato a `/distill/[id]` o alla pagina storico con il nuovo job visibile
+  - [ ] Il job appena creato mostra chiaramente lo status "In coda"
+  - [ ] È presente un messaggio che informa l'utente che riceverà una email al completamento
+  - [ ] L'utente può navigare liberamente dopo la conferma (non è bloccato in attesa)

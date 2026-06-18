@@ -1,0 +1,29 @@
+schema: archetipo/spec/v2
+code: US-014
+title: Implementare le API GET per la lista e il dettaglio dei job
+epic:
+  code: EP-004
+  title: Notifica e Consultazione
+priority: HIGH
+points: 2
+status: TODO
+scope: MVP
+body: |-
+  #### US-014: Implementare le API GET per la lista e il dettaglio dei job
+
+  **Epic:** EP-004 | **Priorità:** HIGH | **Punti:** 2 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di Marco, utente autenticato,
+  voglio poter recuperare la lista dei miei distillati e il dettaglio di un singolo distillato tramite API,
+  in modo da visualizzarli nella web app.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, `GET /api/distill` con sessione valida restituisce la lista dei job dell'utente; `GET /api/distill/[id]` restituisce il dettaglio completo incluso `result` per un job di proprietà dell'utente.
+
+  **Criteri di Accettazione**
+  - [ ] `GET /api/distill` restituisce i job dell'utente autenticato ordinati per `createdAt` DESC, con campi: `id`, `topic`, `tone`, `status`, `createdAt`
+  - [ ] `GET /api/distill/[id]` restituisce il job completo incluso `result` (se DONE) per l'utente proprietario
+  - [ ] Richiedere un job di un altro utente restituisce 404 (non 403, per evitare enumerazione)
+  - [ ] Richieste senza sessione valida restituiscono 401

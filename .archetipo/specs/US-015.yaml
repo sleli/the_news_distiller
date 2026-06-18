@@ -1,0 +1,31 @@
+schema: archetipo/spec/v2
+code: US-015
+title: Creare la pagina dello storico distillati con stato aggiornato
+epic:
+  code: EP-004
+  title: Notifica e Consultazione
+priority: HIGH
+points: 3
+status: TODO
+blocked_by:
+  - US-014
+scope: MVP
+body: |-
+  #### US-015: Creare la pagina dello storico distillati con stato aggiornato
+
+  **Epic:** EP-004 | **Priorità:** HIGH | **Punti:** 3 | **Stato:** TODO
+  **Bloccato da:** US-014
+
+  **User Story**
+  In qualità di Marco, utente autenticato,
+  voglio vedere una lista di tutti i miei distillati con il loro stato corrente,
+  in modo da tracciare le mie richieste e sapere quali sono pronti da leggere.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, Marco visita `/distill` e vede la lista dei suoi distillati con topic, stato (In coda / In elaborazione / Completato / Errore), data e tono. I job completati hanno un link alla pagina di dettaglio.
+
+  **Criteri di Accettazione**
+  - [ ] La pagina mostra la lista dei distillati dell'utente con: topic, stato, data richiesta, tono
+  - [ ] Lo stato di ogni job corrisponde a quello nel database (aggiornato al refresh della pagina)
+  - [ ] I job con status `DONE` mostrano un link cliccabile alla pagina di dettaglio `/distill/[id]`
+  - [ ] I job con status `FAILED` mostrano un indicatore di errore visivamente distinto

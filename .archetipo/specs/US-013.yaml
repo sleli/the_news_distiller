@@ -1,0 +1,29 @@
+schema: archetipo/spec/v2
+code: US-013
+title: Inviare l'email di notifica al completamento del distillato
+epic:
+  code: EP-004
+  title: Notifica e Consultazione
+priority: HIGH
+points: 3
+status: TODO
+scope: MVP
+body: |-
+  #### US-013: Inviare l'email di notifica al completamento del distillato
+
+  **Epic:** EP-004 | **Priorità:** HIGH | **Punti:** 3 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di Marco, utente che ha richiesto un distillato,
+  voglio ricevere una email quando il distillato è pronto con il contenuto completo e i link alle fonti,
+  in modo da leggere il risultato senza dover aprire l'app.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, al completamento di un job, Marco riceve una email con oggetto contenente il topic, la sintesi, le sezioni delle posizioni e la lista delle fonti con URL cliccabili.
+
+  **Criteri di Accettazione**
+  - [ ] L'email ha oggetto nel formato "Il tuo distillato su [topic] è pronto"
+  - [ ] L'email contiene: sintesi generale, sezioni per ogni posizione (label + testo), lista fonti con URL cliccabili
+  - [ ] L'email include un link "Leggi nella app" che punta a `/distill/[jobId]`
+  - [ ] L'email è inviata all'indirizzo registrato dell'utente proprietario del job

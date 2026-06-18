@@ -1,0 +1,31 @@
+schema: archetipo/spec/v2
+code: US-011
+title: Validare e strutturare l'output AI con sintesi, posizioni e fonti
+epic:
+  code: EP-003
+  title: Elaborazione Asincrona
+priority: HIGH
+points: 3
+status: TODO
+blocked_by:
+  - US-010
+scope: MVP
+body: |-
+  #### US-011: Validare e strutturare l'output AI con sintesi, posizioni e fonti
+
+  **Epic:** EP-003 | **Priorità:** HIGH | **Punti:** 3 | **Stato:** TODO
+  **Bloccato da:** US-010
+
+  **User Story**
+  In qualità di Marco, utente che riceve il distillato,
+  voglio che il distillato sia strutturato con una sintesi generale, sezioni per ogni posizione identificata e le fonti citate,
+  in modo da leggere le divergenze e verificare ogni affermazione cliccando sulla fonte.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, il campo `result` di un job `DONE` contiene un oggetto JSON con `summary` (stringa), `positions` (array di oggetti con label, headline, body, sourceRefs) e `sources` (array di oggetti con title e url).
+
+  **Criteri di Accettazione**
+  - [ ] Il prompt inviato a Claude richiede esplicitamente lo schema: `{ summary, positions: [{label, headline, body, sourceRefs[]}], sources: [{title, url}] }`
+  - [ ] Ogni posizione referenzia almeno una fonte tramite indice in `sourceRefs`
+  - [ ] Il risultato ricevuto da Claude è validato contro lo schema prima di essere salvato
+  - [ ] Se la validazione fallisce, il job viene impostato a `FAILED` (con eventuale log del payload non valido)

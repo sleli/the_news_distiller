@@ -1,0 +1,30 @@
+schema: archetipo/spec/v2
+code: US-006
+title: Implementare il worker Node.js con loop di polling sul database
+epic:
+  code: EP-001
+  title: Fondamenta e Infrastruttura Asincrona
+priority: HIGH
+points: 3
+status: TODO
+scope: MVP
+body: |-
+  #### US-006: Implementare il worker Node.js con loop di polling sul database
+
+  **Epic:** EP-001 | **Priorità:** HIGH | **Punti:** 3 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio un processo worker separato in `worker/index.ts` che rilevi periodicamente i job in coda e li elabori,
+  in modo da processare le richieste di distillazione in modo asincrono senza bloccare il server Next.js.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, uno sviluppatore può eseguire `npm run worker` in un terminale separato e vedere nei log che il worker si avvia, fa polling a intervalli regolari e riporta l'esito di ogni ciclo.
+
+  **Criteri di Accettazione**
+  - [ ] `package.json` include lo script `"worker"` che avvia il processo worker
+  - [ ] Il worker fa polling su `DistillJob` per status `PENDING` ogni `WORKER_POLL_INTERVAL_MS` ms (default 5000)
+  - [ ] Prima di elaborare un job, il worker aggiorna il suo status a `RUNNING`
+  - [ ] Il worker imposta status `DONE` o `FAILED` al termine o in caso di errore
+  - [ ] I log indicano: avvio, job rilevato, stato finale di ogni job elaborato

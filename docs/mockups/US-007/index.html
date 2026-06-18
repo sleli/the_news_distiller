@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The News Distiller — Richiedi Distillato [US-007]</title>
+  <link rel="stylesheet" href="../news-distiller-mvp/shared.css">
+  <style>
+    /* ─── US-007 SPECIFIC STYLES ─────────────────────────────── */
+
+    /* Layout principale: form 2/3 + sidebar 1/3 */
+    .request-layout {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 0;
+      align-items: start;
+    }
+
+    /* ─── TICKER ──────────────────────────────────────────────── */
+    .ticker {
+      background: var(--ink);
+      color: var(--paper);
+      font-family: var(--font-stamp);
+      font-size: .62rem;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      padding: .25rem 1rem;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .ticker-inner {
+      display: inline-block;
+      animation: ticker 22s linear infinite;
+    }
+    @keyframes ticker {
+      from { transform: translateX(100vw); }
+      to   { transform: translateX(-200%); }
+    }
+
+    /* ─── HERO HEADER ─────────────────────────────────────────── */
+    .page-hero {
+      padding: 1.2rem 1.5rem .8rem;
+      border-bottom: var(--rule-medium) solid var(--ink);
+    }
+
+    /* ─── FORM COLUMN ─────────────────────────────────────────── */
+    .form-col {
+      padding: 1.2rem 1.2rem 1.5rem;
+      border-right: var(--rule-thin) solid var(--ink);
+    }
+
+    /* Textarea con stile macchina da scrivere */
+    .topic-textarea {
+      width: 100%;
+      background: #FDFAF0;
+      border: var(--rule-medium) solid var(--ink);
+      padding: .65rem .75rem;
+      font-family: var(--font-stamp);
+      font-size: .92rem;
+      color: var(--ink);
+      outline: none;
+      resize: vertical;
+      min-height: 110px;
+      line-height: 1.5;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .topic-textarea:focus {
+      border-color: var(--red);
+      box-shadow: 2px 2px 0 var(--red);
+    }
+    .topic-textarea::placeholder {
+      color: var(--ink-faded);
+      font-style: italic;
+    }
+
+    /* Contatore caratteri */
+    .char-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: .3rem;
+    }
+    .char-count {
+      font-family: var(--font-stamp);
+      font-size: .6rem;
+      color: var(--ink-faded);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .char-count.warning { color: #996600; }
+    .char-count.danger  { color: var(--red); font-weight: 700; }
+    .char-progress {
+      width: 80px;
+      height: 4px;
+      background: var(--paper-dark);
+      position: relative;
+    }
+    .char-progress-fill {
+      position: absolute;
+      top: 0; left: 0;
+      height: 100%;
+      background: var(--ink);
+      transition: width .15s, background .15s;
+    }
+
+    /* ─── TONE SELECTOR ───────────────────────────────────────── */
+    .tone-section-label {
+      font-family: var(--font-deck);
+      font-size: .65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .18em;
+      color: var(--ink-mid);
+      margin-bottom: .5rem;
+      display: block;
+    }
+
+    .tone-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .4rem;
+      margin-bottom: .6rem;
+    }
+    .tone-option { display: none; }
+
+    .tone-label {
+      display: block;
+      border: var(--rule-medium) solid var(--ink);
+      padding: .55rem .65rem;
+      cursor: pointer;
+      transition: background .12s, color .12s, box-shadow .12s;
+      position: relative;
+    }
+    .tone-label:hover {
+      background: var(--paper-mid);
+      box-shadow: 2px 2px 0 var(--ink);
+    }
+    .tone-option:checked + .tone-label {
+      background: var(--ink);
+      color: var(--paper);
+      box-shadow: 3px 3px 0 var(--ink-faded);
+    }
+    .tone-option:checked + .tone-label .tone-badge {
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    .tone-badge {
+      font-family: var(--font-stamp);
+      font-size: .52rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      background: var(--ink);
+      color: var(--paper);
+      padding: .1rem .3rem;
+      display: inline-block;
+      margin-bottom: .25rem;
+    }
+    .tone-name {
+      font-family: var(--font-deck);
+      font-size: .78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      display: block;
+      line-height: 1.2;
+    }
+    .tone-hint {
+      font-family: var(--font-body);
+      font-style: italic;
+      font-size: .6rem;
+      display: block;
+      margin-top: .1rem;
+      opacity: .72;
+      line-height: 1.3;
+    }
+
+    /* Preview descrizione tono selezionato */
+    .tone-preview-box {
+      border-top: var(--rule-heavy) solid var(--ink);
+      border-bottom: var(--rule-heavy) solid var(--ink);
+      border-left: var(--rule-medium) solid var(--ink);
+      border-right: var(--rule-medium) solid var(--ink);
+      padding: .7rem .8rem;
+      background: var(--paper-mid);
+      min-height: 72px;
+      position: relative;
+      transition: opacity .2s;
+    }
+    .tone-preview-label {
+      font-family: var(--font-deck);
+      font-size: .58rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .18em;
+      color: var(--ink-faded);
+      display: block;
+      margin-bottom: .25rem;
+    }
+    .tone-preview-title {
+      font-family: var(--font-head);
+      font-size: 1rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      color: var(--ink);
+      line-height: 1;
+      margin-bottom: .25rem;
+    }
+    .tone-preview-desc {
+      font-family: var(--font-body);
+      font-style: italic;
+      font-size: .75rem;
+      color: var(--ink-mid);
+      line-height: 1.45;
+    }
+    .tone-preview-desc::first-letter {
+      font-size: 1em;
+      float: none;
+      font-weight: normal;
+    }
+
+    /* ─── SUBMIT AREA ─────────────────────────────────────────── */
+    .submit-area {
+      border-top: var(--rule-double) solid var(--ink);
+      padding-top: .9rem;
+      margin-top: 1rem;
+    }
+    .rule-double {
+      border-top: 4px solid var(--ink);
+      border-bottom: 1px solid var(--ink);
+      padding-top: 2px;
+      margin: .8rem 0;
+    }
+
+    /* Pulsante submit — stato disabilitato */
+    .btn-submit {
+      font-family: var(--font-deck);
+      font-size: .88rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .18em;
+      padding: .75rem 1.5rem;
+      border: var(--rule-medium) solid;
+      width: 100%;
+      text-align: center;
+      cursor: pointer;
+      transition: background .12s, color .12s, border-color .12s, opacity .15s;
+      display: block;
+    }
+
+    .btn-submit:enabled {
+      background: var(--red);
+      border-color: var(--red);
+      color: var(--paper);
+    }
+    .btn-submit:enabled:hover {
+      background: var(--red-dark);
+      border-color: var(--red-dark);
+      box-shadow: 4px 4px 0 var(--ink);
+    }
+
+    .btn-submit:disabled {
+      background: var(--paper-dark);
+      border-color: var(--ink-faded);
+      color: var(--ink-faded);
+      cursor: not-allowed;
+      opacity: .7;
+    }
+
+    .submit-note {
+      font-family: var(--font-stamp);
+      font-size: .58rem;
+      color: var(--ink-faded);
+      text-align: center;
+      margin-top: .4rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      font-style: normal;
+    }
+
+    .submit-disabled-msg {
+      font-family: var(--font-stamp);
+      font-size: .62rem;
+      color: var(--ink-faded);
+      text-align: center;
+      margin-top: .3rem;
+      font-style: italic;
+      text-transform: none;
+      letter-spacing: 0;
+      min-height: 1.2em;
+      transition: opacity .2s;
+    }
+    .submit-disabled-msg.hidden { opacity: 0; }
+
+    /* ─── SIDEBAR ─────────────────────────────────────────────── */
+    .sidebar-col {
+      padding: 1rem .9rem 1.5rem;
+      background: #EDDFB0;
+    }
+
+    .sidebar-section-title {
+      font-family: var(--font-deck);
+      font-size: .6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .2em;
+      color: var(--ink-faded);
+      border-bottom: var(--rule-thin) solid var(--ink-faded);
+      padding-bottom: .3rem;
+      margin-bottom: .6rem;
+    }
+
+    .sidebar-tip {
+      border-left: 4px solid var(--red);
+      padding: .35rem 0 .35rem .55rem;
+      margin-bottom: .7rem;
+      font-size: .72rem;
+      color: var(--ink-mid);
+      line-height: 1.4;
+    }
+    .sidebar-tip strong {
+      font-family: var(--font-deck);
+      font-size: .64rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      display: block;
+      margin-bottom: .15rem;
+      color: var(--ink);
+      font-style: normal;
+    }
+    .sidebar-tip p {
+      font-style: italic;
+      margin: 0;
+      font-size: .7rem;
+    }
+    .sidebar-tip p::first-letter { font-size: 1em; float: none; font-weight: normal; }
+
+    /* Richieste recenti nella sidebar */
+    .recent-card {
+      border: var(--rule-thin) solid var(--ink);
+      padding: .45rem .55rem;
+      margin-bottom: .45rem;
+      background: var(--paper);
+    }
+    .recent-card-title {
+      font-family: var(--font-head);
+      font-size: .82rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      line-height: 1.1;
+      margin-bottom: .2rem;
+    }
+    .recent-card-meta {
+      font-family: var(--font-stamp);
+      font-size: .56rem;
+      color: var(--ink-faded);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .recent-card a {
+      font-family: var(--font-stamp);
+      font-size: .56rem;
+      color: var(--red);
+      text-decoration: none;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .recent-card a:hover { text-decoration: underline; }
+
+    /* Nota accesso auth */
+    .auth-notice {
+      background: var(--ink);
+      color: var(--paper);
+      font-family: var(--font-stamp);
+      font-size: .58rem;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      padding: .35rem .6rem;
+      margin-bottom: .8rem;
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+    }
+    .auth-notice::before {
+      content: "★";
+      color: var(--paper-dark);
+    }
+
+    /* ─── CONFIRMATION OVERLAY ────────────────────────────────── */
+    .confirm-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(22, 14, 2, .72);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .confirm-overlay.active {
+      display: flex;
+    }
+    .confirm-box {
+      background: var(--paper);
+      border: 4px solid var(--ink);
+      max-width: 420px;
+      width: 90%;
+      padding: 1.5rem;
+      box-shadow: 8px 8px 0 var(--ink);
+      text-align: center;
+    }
+    .confirm-box .hl-major {
+      font-size: 1.6rem;
+      margin-bottom: .5rem;
+    }
+    .confirm-stamp {
+      display: inline-block;
+      margin: .8rem 0;
+      transform: rotate(-3deg);
+    }
+
+    /* ─── RESPONSIVE ──────────────────────────────────────────── */
+    @media (max-width: 680px) {
+      .request-layout {
+        grid-template-columns: 1fr;
+      }
+      .form-col {
+        border-right: none;
+        border-bottom: var(--rule-medium) solid var(--ink);
+      }
+      .sidebar-col {
+        background: var(--paper-mid);
+      }
+      .tone-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="paper">
+
+    <!-- ══════════════════════════════════════════════════
+         MASTHEAD
+    ════════════════════════════════════════════════════ -->
+    <header class="masthead">
+      <div class="masthead-rule-top"></div>
+      <div class="masthead-rule-thin"></div>
+      <div class="masthead-meta">
+        <span>Vol. 1 — No. 1</span>
+        <span>Giovedì, 18 Giugno 1974</span>
+        <span>Lire 150</span>
+      </div>
+      <div class="masthead-title">The <em>News</em> Distiller</div>
+      <div class="masthead-tagline">La verità in tutte le sue contraddizioni — ogni giorno, senza filtri</div>
+    </header>
+
+    <!-- ══════════════════════════════════════════════════
+         NAVBAR
+    ════════════════════════════════════════════════════ -->
+    <nav class="navbar">
+      <div class="navbar-links">
+        <a href="../news-distiller-mvp/index.html">Prima Pagina</a>
+        <a href="#" style="text-decoration:underline">Nuova Richiesta</a>
+        <a href="../news-distiller-mvp/history.html">Archivio</a>
+      </div>
+      <div class="navbar-user">Marco Bianchi — <a href="#">Esci</a></div>
+    </nav>
+
+    <!-- ══════════════════════════════════════════════════
+         BREAKING TICKER
+    ════════════════════════════════════════════════════ -->
+    <div class="ticker" aria-hidden="true">
+      <span class="ticker-inner">
+        ULTIME ORE: Distillato su "NATO e Ucraina" completato — 8 posizioni identificate &nbsp;★&nbsp;
+        In elaborazione: "Migrazione clandestina" — stima 3 min &nbsp;★&nbsp;
+        Il Distillatore ora supporta argomenti in 12 lingue &nbsp;★&nbsp;
+        Nuovo tono CRITICO disponibile: mette a nudo le contraddizioni &nbsp;★&nbsp;
+      </span>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         PAGE HERO
+    ════════════════════════════════════════════════════ -->
+    <div class="page-hero">
+      <!-- Badge accesso riservato -->
+      <div class="auth-notice" role="status">
+        Accesso riservato — Abbonato: Marco Bianchi, Milano
+      </div>
+
+      <div class="rule-double" style="margin:0 0 .6rem"></div>
+
+      <span class="hl-kicker">Redazione — Invio Segnalazione</span>
+      <h1 class="hl-mega" style="line-height:.95;margin-bottom:.35rem">
+        Chiedi al<br>Distillatore
+      </h1>
+      <p class="hl-deck">
+        Indica l'argomento. Il Distillatore raccoglierà le ultime notizie,
+        le analizzerà e ti recapiterà un riassunto strutturato per email —
+        di solito in meno di 5 minuti.
+      </p>
+      <div class="byline">Modello editoriale proprietario — aggiornato ogni ora</div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         MAIN CONTENT: form + sidebar
+    ════════════════════════════════════════════════════ -->
+    <div class="request-layout">
+
+      <!-- ────────────────────────────────
+           COLONNA SINISTRA: form
+      ──────────────────────────────── -->
+      <div class="form-col">
+        <form id="distill-form" onsubmit="handleSubmit(event)" novalidate>
+
+          <!-- ── ARGOMENTO ── -->
+          <div class="form-group">
+            <label class="form-label" for="topic">
+              ★ Argomento da distillare
+              <span style="color:var(--red);margin-left:.2rem" aria-label="obbligatorio">*</span>
+            </label>
+
+            <textarea
+              id="topic"
+              class="topic-textarea"
+              placeholder="Es. «Riforma pensioni 2025», «Impatto dell'IA sul mercato del lavoro», «Politica estera italiana post-elezioni»..."
+              maxlength="300"
+              rows="4"
+              required
+              aria-describedby="char-info tone-preview-region"
+              oninput="onTopicInput(this)"
+            ></textarea>
+
+            <div class="char-bar" id="char-info" aria-live="polite">
+              <span class="char-progress" role="progressbar" aria-valuemin="0" aria-valuemax="300" aria-valuenow="0" id="char-progress-el">
+                <span class="char-progress-fill" id="char-fill" style="width:0%"></span>
+              </span>
+              <span class="char-count" id="char-count">0 / 300 caratteri</span>
+            </div>
+          </div>
+
+          <!-- ── TONO ── -->
+          <div class="form-group">
+            <span class="tone-section-label">Tono del distillato</span>
+
+            <div class="tone-grid" role="radiogroup" aria-label="Seleziona il tono del distillato">
+
+              <!-- NEUTRO (default) -->
+              <div>
+                <input type="radio" name="tone" id="tone-neutro" value="neutro"
+                       class="tone-option" checked
+                       onchange="onToneChange(this)">
+                <label for="tone-neutro" class="tone-label">
+                  <span class="tone-badge">Default</span>
+                  <span class="tone-name">Neutro</span>
+                  <span class="tone-hint">Fattuale e bilanciato</span>
+                </label>
+              </div>
+
+              <!-- ANALITICO -->
+              <div>
+                <input type="radio" name="tone" id="tone-analitico" value="analitico"
+                       class="tone-option"
+                       onchange="onToneChange(this)">
+                <label for="tone-analitico" class="tone-label">
+                  <span class="tone-badge">Dati</span>
+                  <span class="tone-name">Analitico</span>
+                  <span class="tone-hint">Prove e ragionamento</span>
+                </label>
+              </div>
+
+              <!-- DIVULGATIVO -->
+              <div>
+                <input type="radio" name="tone" id="tone-divulgativo" value="divulgativo"
+                       class="tone-option"
+                       onchange="onToneChange(this)">
+                <label for="tone-divulgativo" class="tone-label">
+                  <span class="tone-badge">Chiaro</span>
+                  <span class="tone-name">Divulgativo</span>
+                  <span class="tone-hint">Accessibile, semplificato</span>
+                </label>
+              </div>
+
+              <!-- CRITICO -->
+              <div>
+                <input type="radio" name="tone" id="tone-critico" value="critico"
+                       class="tone-option"
+                       onchange="onToneChange(this)">
+                <label for="tone-critico" class="tone-label">
+                  <span class="tone-badge" style="background:var(--red)">Attento</span>
+                  <span class="tone-name">Critico</span>
+                  <span class="tone-hint">Contraddizioni in luce</span>
+                </label>
+              </div>
+
+            </div>
+
+            <!-- Preview descrizione tono -->
+            <div class="tone-preview-box" id="tone-preview-region" aria-live="polite" aria-label="Descrizione tono selezionato">
+              <span class="tone-preview-label">Tono selezionato</span>
+              <div class="tone-preview-title" id="preview-title">Neutro</div>
+              <div class="tone-preview-desc" id="preview-desc">
+                Il distillato presenterà le posizioni in modo <strong>fattuale e bilanciato</strong>,
+                senza enfatizzare alcun punto di vista. Ideale per formarsi un'opinione autonoma
+                senza essere condizionati da una lettura preimpostata.
+              </div>
+            </div>
+          </div>
+
+          <!-- ── SUBMIT ── -->
+          <div class="submit-area">
+            <button
+              type="submit"
+              class="btn-submit"
+              id="submit-btn"
+              disabled
+              aria-describedby="submit-hint"
+            >
+              ★ Invia al Distillatore ★
+            </button>
+            <div class="submit-disabled-msg" id="submit-hint">
+              Inserisci un argomento per abilitare l'invio.
+            </div>
+          </div>
+
+        </form>
+      </div>
+
+      <!-- ────────────────────────────────
+           COLONNA DESTRA: sidebar
+      ──────────────────────────────── -->
+      <div class="sidebar-col">
+
+        <!-- Suggerimenti editoriali -->
+        <div class="sidebar-section-title">Suggerimenti dalla Redazione</div>
+
+        <div class="sidebar-tip">
+          <strong>Sii specifico</strong>
+          <p>
+            «Intelligenza artificiale» è troppo vago.
+            «Impatto dell'IA sul mercato del lavoro in Italia nel 2025»
+            produce un distillato tre volte più ricco e preciso.
+          </p>
+        </div>
+
+        <div class="sidebar-tip">
+          <strong>Argomenti recenti</strong>
+          <p>
+            Il Distillatore lavora meglio su notizie delle ultime 4 settimane.
+            Temi storici o accademici possono produrre risultati meno aggiornati.
+          </p>
+        </div>
+
+        <div class="sidebar-tip">
+          <strong>Tono critico: usalo con criterio</strong>
+          <p>
+            Il tono critico mette in luce le contraddizioni — potente per
+            approfondire, meno adatto a chi si avvicina al tema per la prima volta.
+          </p>
+        </div>
+
+        <div class="sidebar-tip">
+          <strong>300 caratteri bastano</strong>
+          <p>
+            Hai 300 caratteri: usali tutti se serve. Un argomento ben circoscritto
+            riduce i tempi di elaborazione e migliora la qualità del distillato.
+          </p>
+        </div>
+
+        <div class="rule-thin" style="margin: .8rem 0 .7rem"></div>
+
+        <!-- Richieste recenti -->
+        <div class="sidebar-section-title" style="margin-bottom:.5rem">Le Tue Ultime Richieste</div>
+
+        <div class="recent-card">
+          <div class="recent-card-title">Riforma Pensioni 2025</div>
+          <div class="recent-card-meta">
+            <span>Ieri, 17:42 · Neutro</span>
+            <span class="stamp stamp-done" style="font-size:.5rem;padding:.1rem .3rem;transform:rotate(-1deg)">Pronto</span>
+          </div>
+          <div style="margin-top:.35rem">
+            <a href="../news-distiller-mvp/result.html">Leggi il distillato →</a>
+          </div>
+        </div>
+
+        <div class="recent-card">
+          <div class="recent-card-title">Elezioni europee: i risultati</div>
+          <div class="recent-card-meta">
+            <span>2 gg fa · Analitico</span>
+            <span class="stamp stamp-done" style="font-size:.5rem;padding:.1rem .3rem;transform:rotate(1deg)">Pronto</span>
+          </div>
+          <div style="margin-top:.35rem">
+            <a href="../news-distiller-mvp/result.html">Leggi il distillato →</a>
+          </div>
+        </div>
+
+        <div class="recent-card" style="opacity:.75">
+          <div class="recent-card-title">Crisi idrica in Sicilia</div>
+          <div class="recent-card-meta">
+            <span>3 gg fa · Critico</span>
+            <span class="stamp stamp-running" style="font-size:.5rem;padding:.1rem .3rem">In corso</span>
+          </div>
+        </div>
+
+        <div class="rule-thin" style="margin-top:.4rem;margin-bottom:.5rem"></div>
+        <a href="../news-distiller-mvp/history.html"
+           style="font-family:var(--font-stamp);font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-mid);text-decoration:none">
+          → Vedi archivio completo
+        </a>
+
+        <!-- Pull quote tabloid -->
+        <div class="pull-quote" style="margin-top:1.2rem;font-size:.85rem">
+          "La notizia non è mai neutra.<br>
+          Il tono con cui la leggi, sì."
+        </div>
+        <div class="byline text-center" style="margin-top:.2rem">— Redazione del Distillatore</div>
+
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         FOOTER
+    ════════════════════════════════════════════════════ -->
+    <footer class="paper-footer">
+      <span>© 1974 The News Distiller</span>
+      <span>Il Distillatore è una macchina — tu sei il giudice</span>
+      <span>Milano, Italia</span>
+    </footer>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       OVERLAY DI CONFERMA (prototipo)
+  ════════════════════════════════════════════════════ -->
+  <div class="confirm-overlay" id="confirm-overlay" role="dialog" aria-modal="true" aria-label="Richiesta inviata">
+    <div class="confirm-box">
+      <div class="hl-major" style="color:var(--red)">Ricevuto!</div>
+      <p style="font-size:.82rem;margin:.5rem 0 .8rem;color:var(--ink-mid)">
+        La tua richiesta è stata inviata al Distillatore.<br>
+        Riceverai il distillato per email quando sarà pronto.
+      </p>
+      <div class="confirm-stamp">
+        <span class="stamp stamp-running" style="font-size:.8rem;padding:.4rem 1rem">In elaborazione</span>
+      </div>
+      <div style="margin-top:1rem;font-family:var(--font-stamp);font-size:.6rem;color:var(--ink-faded);text-transform:uppercase;letter-spacing:.08em">
+        Stima: 3–5 minuti · Controlla la tua email
+      </div>
+      <div style="margin-top:1.2rem">
+        <button onclick="closeConfirm()" class="btn btn-outline" style="margin-right:.5rem;font-size:.7rem">
+          Nuova richiesta
+        </button>
+        <a href="../news-distiller-mvp/history.html" class="btn" style="font-size:.7rem">
+          Vai all'archivio
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       JAVASCRIPT
+  ════════════════════════════════════════════════════ -->
+  <script>
+    // ── TONO: descrizioni complete ───────────────────────────────
+    const TONES = {
+      neutro: {
+        title: 'Neutro',
+        desc: 'Il distillato presenterà le posizioni in modo <strong>fattuale e bilanciato</strong>, senza enfatizzare alcun punto di vista. Ideale per formarsi un\'opinione autonoma senza essere condizionati da una lettura preimpostata.'
+      },
+      analitico: {
+        title: 'Analitico',
+        desc: 'Il distillato si concentrerà su <strong>dati, prove e catene di ragionamento</strong>. Ogni posizione verrà valutata sulla base delle evidenze citate dalle fonti, con particolare attenzione alle implicazioni logiche.'
+      },
+      divulgativo: {
+        title: 'Divulgativo',
+        desc: 'Il distillato sarà <strong>accessibile e semplificato</strong>, con spiegazioni dei concetti chiave e analogie utili. Adatto a chi si avvicina al tema per la prima volta o vuole condividerlo con un pubblico eterogeneo.'
+      },
+      critico: {
+        title: 'Critico',
+        desc: 'Il distillato metterà in evidenza <strong>contraddizioni, omissioni e punti deboli</strong> di ogni posizione. Utile per approfondire, contestare le narrative dominanti e riconoscere gli interessi in gioco.'
+      }
+    };
+
+    // ── Aggiorna preview tono ────────────────────────────────────
+    function onToneChange(radio) {
+      const tone = TONES[radio.value];
+      if (!tone) return;
+
+      const titleEl = document.getElementById('preview-title');
+      const descEl  = document.getElementById('preview-desc');
+      const box     = document.getElementById('tone-preview-region');
+
+      // Micro-transizione: fade out → aggiorna → fade in
+      box.style.opacity = '.4';
+      setTimeout(() => {
+        titleEl.textContent = tone.title;
+        descEl.innerHTML    = tone.desc;
+        box.style.opacity   = '1';
+      }, 120);
+    }
+
+    // ── Gestisce input campo argomento ───────────────────────────
+    function onTopicInput(textarea) {
+      const len  = textarea.value.length;
+      const max  = 300;
+      const pct  = (len / max) * 100;
+
+      // Aggiorna contatore
+      const countEl = document.getElementById('char-count');
+      countEl.textContent = `${len} / ${max} caratteri`;
+      countEl.className = 'char-count';
+      if (pct >= 90) countEl.classList.add('danger');
+      else if (pct >= 70) countEl.classList.add('warning');
+
+      // Aggiorna barra progresso
+      const fill = document.getElementById('char-fill');
+      fill.style.width = Math.min(pct, 100) + '%';
+      fill.style.background = pct >= 90 ? 'var(--red)' : pct >= 70 ? '#996600' : 'var(--ink)';
+
+      // Aria
+      document.getElementById('char-progress-el').setAttribute('aria-valuenow', len);
+
+      // Abilita / disabilita submit
+      updateSubmitState(textarea.value.trim().length > 0);
+    }
+
+    // ── Abilita o disabilita il pulsante submit ──────────────────
+    function updateSubmitState(isEnabled) {
+      const btn  = document.getElementById('submit-btn');
+      const hint = document.getElementById('submit-hint');
+
+      btn.disabled = !isEnabled;
+
+      if (isEnabled) {
+        hint.textContent = '';
+        hint.classList.add('hidden');
+      } else {
+        hint.textContent = 'Inserisci un argomento per abilitare l\'invio.';
+        hint.classList.remove('hidden');
+      }
+    }
+
+    // ── Submit ───────────────────────────────────────────────────
+    function handleSubmit(e) {
+      e.preventDefault();
+      const topic = document.getElementById('topic').value.trim();
+      if (!topic) return; // safety (pulsante già disabilitato)
+
+      // Mostra overlay di conferma (prototipo)
+      document.getElementById('confirm-overlay').classList.add('active');
+    }
+
+    // ── Chiudi overlay ───────────────────────────────────────────
+    function closeConfirm() {
+      document.getElementById('confirm-overlay').classList.remove('active');
+
+      // Reset form per prototipare nuova richiesta
+      document.getElementById('distill-form').reset();
+      document.getElementById('char-count').textContent = '0 / 300 caratteri';
+      document.getElementById('char-count').className = 'char-count';
+      document.getElementById('char-fill').style.width = '0%';
+
+      // Ripristina tono default
+      const previewTitle = TONES.neutro;
+      document.getElementById('preview-title').textContent = previewTitle.title;
+      document.getElementById('preview-desc').innerHTML    = previewTitle.desc;
+
+      // Disabilita submit
+      updateSubmitState(false);
+    }
+
+    // ── Chiudi overlay con ESC ───────────────────────────────────
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeConfirm();
+    });
+
+    // ── Click fuori dall'overlay per chiudere ────────────────────
+    document.getElementById('confirm-overlay').addEventListener('click', function(e) {
+      if (e.target === this) closeConfirm();
+    });
+
+    // ── Init: assicura stato disabilitato al caricamento ─────────
+    updateSubmitState(false);
+  </script>
+</body>
+</html>

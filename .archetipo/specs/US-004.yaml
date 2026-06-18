@@ -1,0 +1,29 @@
+schema: archetipo/spec/v2
+code: US-004
+title: Implementare il client Claude con prompt strutturato e toni parametrizzati
+epic:
+  code: EP-001
+  title: Fondamenta e Infrastruttura Asincrona
+priority: HIGH
+points: 3
+status: TODO
+scope: MVP
+body: |-
+  #### US-004: Implementare il client Claude con prompt strutturato e toni parametrizzati
+
+  **Epic:** EP-001 | **Priorità:** HIGH | **Punti:** 3 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio un client Claude in `src/lib/claude.ts` e un file `src/lib/tones.ts` con le costanti dei toni,
+  in modo da produrre distillati strutturati in modalità diverse (neutro, analitico, divulgativo, critico).
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, uno sviluppatore può chiamare `distillArticles(articles, "riforma pensioni", "neutro")` e ricevere un oggetto con campi `summary`, `positions` e `sources` conformi allo schema atteso.
+
+  **Criteri di Accettazione**
+  - [ ] `distillArticles(articles, topic, tone)` restituisce `{ summary: string, positions: Array<{label, headline, body, sourceRefs}>, sources: Array<{title, url}> }`
+  - [ ] `tones.ts` esporta le costanti per i 4 toni (neutro, analitico, divulgativo, critico), ciascuna con le istruzioni di prompt corrispondenti
+  - [ ] Il parametro tono modifica le istruzioni nel prompt senza cambiare lo schema dell'output
+  - [ ] `ANTHROPIC_API_KEY` è letta esclusivamente da variabili d'ambiente server-side

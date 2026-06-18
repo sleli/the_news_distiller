@@ -1,0 +1,29 @@
+schema: archetipo/spec/v2
+code: US-001
+title: Aggiungere le tabelle DistillJob e DistillSource allo schema Prisma
+epic:
+  code: EP-001
+  title: Fondamenta e Infrastruttura Asincrona
+priority: HIGH
+points: 3
+status: PLANNED
+scope: MVP
+body: |-
+  #### US-001: Aggiungere le tabelle DistillJob e DistillSource allo schema Prisma
+
+  **Epic:** EP-001 | **Priorità:** HIGH | **Punti:** 3 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio che le tabelle `DistillJob` e `DistillSource` esistano nel database con i campi corretti,
+  in modo da poter persistere le richieste di distillazione, il loro stato e le fonti associate.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, uno sviluppatore può eseguire `npx prisma db push` senza errori e verificare tramite un client SQLite che le tabelle esistano con tutti i campi definiti.
+
+  **Criteri di Accettazione**
+  - [ ] `DistillJob` ha i campi: `id`, `userId` (FK → User), `topic`, `tone`, `status` (enum: PENDING/RUNNING/DONE/FAILED), `result` (JSON nullable), `createdAt`, `updatedAt`
+  - [ ] `DistillSource` ha i campi: `id`, `jobId` (FK → DistillJob), `url`, `title`, `excerpt`, `position`
+  - [ ] Le relazioni User→DistillJob e DistillJob→DistillSource sono definite nello schema Prisma
+  - [ ] `npx prisma db push` completa senza errori su database SQLite

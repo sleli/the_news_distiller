@@ -1,0 +1,31 @@
+schema: archetipo/spec/v2
+code: US-010
+title: Implementare l'elaborazione completa del job nel worker (harvesting e distillazione)
+epic:
+  code: EP-003
+  title: Elaborazione Asincrona
+priority: HIGH
+points: 5
+status: TODO
+scope: MVP
+body: |-
+  #### US-010: Implementare l'elaborazione completa del job nel worker
+
+  **Epic:** EP-003 | **Priorità:** HIGH | **Punti:** 5 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di Marco, utente che ha inviato una richiesta,
+  voglio che il sistema raccolga automaticamente articoli recenti sull'argomento e li distilli con l'AI,
+  in modo da ricevere un riassunto pluralistico senza dover fare nulla dopo il submit.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, con il worker in esecuzione e un job in status `PENDING`, il worker cambia lo status a `RUNNING`, chiama Tavily, chiama Claude, persiste i record `DistillSource` e salva il risultato in `DistillJob.result` con status `DONE`.
+
+  **Criteri di Accettazione**
+  - [ ] Il worker imposta status `RUNNING` sul job prima di iniziare
+  - [ ] Il worker chiama `searchArticles` con il topic del job e recupera almeno 5 articoli (fino a N configurabile, default 10)
+  - [ ] Il worker chiama `distillArticles` con gli articoli, il topic e il tono del job
+  - [ ] Il worker persiste i record `DistillSource` per ogni articolo recuperato
+  - [ ] Il worker salva l'output AI in `DistillJob.result` e imposta status `DONE`
+  - [ ] Se Tavily non restituisce articoli, il job viene impostato a `FAILED` con messaggio descrittivo

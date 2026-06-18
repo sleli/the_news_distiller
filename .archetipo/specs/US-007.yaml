@@ -1,0 +1,30 @@
+schema: archetipo/spec/v2
+code: US-007
+title: Creare la pagina e il form di richiesta distillato
+epic:
+  code: EP-002
+  title: Richiesta Distillato
+priority: HIGH
+points: 3
+status: PLANNED
+scope: MVP
+body: |-
+  #### US-007: Creare la pagina e il form di richiesta distillato
+
+  **Epic:** EP-002 | **Priorità:** HIGH | **Punti:** 3 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di Marco, utente autenticato,
+  voglio una pagina con un form dove posso inserire un argomento e scegliere il tono del distillato,
+  in modo da inviare una richiesta personalizzata al sistema.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, Marco può visitare `/distill`, inserire "riforma pensioni", selezionare il tono "analitico", vedere la descrizione del tono selezionato e trovare il pulsante di invio attivo.
+
+  **Criteri di Accettazione**
+  - [ ] La pagina `/distill` mostra un campo di testo per l'argomento (max 300 caratteri, obbligatorio)
+  - [ ] Sono disponibili 4 opzioni di tono: Neutro (default), Analitico, Divulgativo, Critico
+  - [ ] Selezionando un tono appare una breve descrizione di cosa produce
+  - [ ] Il pulsante di submit è disabilitato se il campo argomento è vuoto
+  - [ ] La pagina è accessibile solo agli utenti autenticati (redirect per i non loggati)

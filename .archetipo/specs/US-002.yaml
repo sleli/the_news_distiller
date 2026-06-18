@@ -1,0 +1,28 @@
+schema: archetipo/spec/v2
+code: US-002
+title: Estendere il middleware per proteggere le rotte /distill
+epic:
+  code: EP-001
+  title: Fondamenta e Infrastruttura Asincrona
+priority: HIGH
+points: 1
+status: TODO
+scope: MVP
+body: |-
+  #### US-002: Estendere il middleware per proteggere le rotte /distill
+
+  **Epic:** EP-001 | **Priorità:** HIGH | **Punti:** 1 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di utente non autenticato,
+  voglio essere reindirizzato alla pagina di login se provo ad accedere a /distill,
+  in modo da garantire che solo gli utenti registrati possano usare il Distillatore.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, un utente non loggato che visita /distill viene reindirizzato a /auth/signin; un utente con sessione valida accede normalmente.
+
+  **Criteri di Accettazione**
+  - [ ] Il file `middleware.ts` include `/distill` tra le rotte protette dal controllo della sessione
+  - [ ] Una richiesta a `/distill` senza cookie di sessione valido restituisce un redirect a `/auth/signin`
+  - [ ] Una richiesta a `/distill` con sessione valida non viene reindirizzata

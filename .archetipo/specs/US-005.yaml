@@ -1,0 +1,29 @@
+schema: archetipo/spec/v2
+code: US-005
+title: Implementare il client Resend per l'invio di email transazionali
+epic:
+  code: EP-001
+  title: Fondamenta e Infrastruttura Asincrona
+priority: HIGH
+points: 2
+status: TODO
+scope: MVP
+body: |-
+  #### US-005: Implementare il client Resend per l'invio di email transazionali
+
+  **Epic:** EP-001 | **Priorità:** HIGH | **Punti:** 2 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio un client Resend in `src/lib/email.ts` che invii il distillato completato all'utente,
+  in modo da notificarlo via email quando la sua richiesta è pronta.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, uno sviluppatore può chiamare `sendDistillEmail(to, topic, result)` e verificare che l'email arrivi con oggetto, sintesi, posizioni e fonti cliccabili.
+
+  **Criteri di Accettazione**
+  - [ ] `sendDistillEmail(to: string, topic: string, result: DistillResult)` invia un'email tramite Resend con oggetto, sintesi, sezioni posizione e lista fonti con URL cliccabili
+  - [ ] L'email include un link "Leggi nella app" che punta a `/distill/[jobId]`
+  - [ ] `RESEND_API_KEY` è letta esclusivamente da variabili d'ambiente server-side
+  - [ ] Se l'invio fallisce, la funzione lancia un errore con messaggio descrittivo

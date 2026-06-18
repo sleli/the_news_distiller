@@ -1,0 +1,31 @@
+schema: archetipo/spec/v2
+code: US-016
+title: Creare la pagina di dettaglio distillato con posizioni e fonti cliccabili
+epic:
+  code: EP-004
+  title: Notifica e Consultazione
+priority: HIGH
+points: 3
+status: TODO
+blocked_by:
+  - US-014
+scope: MVP
+body: |-
+  #### US-016: Creare la pagina di dettaglio distillato con posizioni e fonti cliccabili
+
+  **Epic:** EP-004 | **Priorità:** HIGH | **Punti:** 3 | **Stato:** TODO
+  **Bloccato da:** US-014
+
+  **User Story**
+  In qualità di Marco, utente autenticato,
+  voglio aprire un distillato completato e leggere la sintesi, le posizioni identificate e le fonti cliccabili,
+  in modo da verificare le informazioni direttamente dagli articoli originali.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, Marco può aprire `/distill/[id]` per un job completato e vedere: la sintesi generale, almeno due sezioni di posizione con label e testo, e una lista di fonti con URL che si aprono in un nuovo tab.
+
+  **Criteri di Accettazione**
+  - [ ] `/distill/[id]` mostra il distillato completo per un job con status `DONE` di proprietà dell'utente autenticato
+  - [ ] La pagina mostra: sezione sintesi, sezioni per ogni posizione (label + headline + testo), lista fonti con URL che aprono in `_blank`
+  - [ ] Se il job non è `DONE`, la pagina mostra lo stato corrente (con indicatore visivo per RUNNING/PENDING)
+  - [ ] Accedere al job di un altro utente mostra una pagina di errore senza rivelare l'esistenza del job
