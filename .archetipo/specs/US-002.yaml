@@ -6,7 +6,7 @@ epic:
   title: Fondamenta e Infrastruttura Asincrona
 priority: HIGH
 points: 1
-status: TODO
+status: REVIEW
 scope: MVP
 body: |-
   #### US-002: Estendere il middleware per proteggere le rotte /distill

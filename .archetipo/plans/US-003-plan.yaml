@@ -1,0 +1,113 @@
+schema: archetipo/plan/v2
+spec_code: US-003
+body: |-
+  # US-003: Implementare il client Tavily per il harvesting di articoli — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-18
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-001 — Fondamenta e Infrastruttura Asincrona
+  **Priorità:** HIGH | **Punti:** 2
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio un client Tavily in `src/lib/tavily.ts` che recuperi articoli recenti su un argomento,
+  in modo da fornire al worker le fonti necessarie per la distillazione.
+
+  **Criteri di Accettazione**
+  - [ ] `searchArticles(topic: string, n: number)` restituisce un array di `{ title, url, content }` chiamando l'API Tavily
+  - [ ] `TAVILY_API_KEY` è letta esclusivamente da variabili d'ambiente server-side e non è mai esposta al bundle client
+  - [ ] Se `TAVILY_API_KEY` non è configurata, il modulo lancia un errore descrittivo all'inizializzazione
+
+  ---
+
+  ## Soluzione Tecnica
+
+  Il modulo è un thin wrapper server-side attorno all'SDK ufficiale `@tavily/core`, con guard di inizializzazione a livello di modulo e tipo esportato `TavilyArticle` per garantire coerenza tra il client e il worker.
+
+  - **Guard a livello di modulo:** `TAVILY_API_KEY` viene verificata al momento dell'import — se assente, il modulo lancia `Error("TAVILY_API_KEY environment variable is not configured")` prima che qualsiasi funzione venga chiamata.
+  - **SDK ufficiale `@tavily/core`:** preferito a `fetch` diretto per tipizzazione nativa, compatibilità futura con l'API Tavily, e riduzione del boilerplate di parsing.
+  - **Tipo esportato `TavilyArticle`:** `{ title: string; url: string; content: string }` — riusabile da `worker/processor.ts` e dagli schemi Prisma per le `DistillSource`.
+  - **Comportamento su risultati parziali:** se Tavily restituisce meno di `n` risultati, viene restituito l'array parziale senza errore — la gestione del caso è responsabilità del worker chiamante.
+  - **Isolamento client-side:** il file risiede in `src/lib/` senza direttiva `"use client"` e non usa `NEXT_PUBLIC_` prefix — rimane fuori dal bundle client per design.
+
+  ```typescript
+  // src/lib/tavily.ts
+  import { tavily } from "@tavily/core";
+
+  const apiKey = process.env.TAVILY_API_KEY;
+  if (!apiKey) {
+    throw new Error("TAVILY_API_KEY environment variable is not configured");
+  }
+
+  const client = tavily({ apiKey });
+
+  export type TavilyArticle = { title: string; url: string; content: string };
+
+  export async function searchArticles(
+    topic: string,
+    n: number
+  ): Promise<TavilyArticle[]> {
+    const response = await client.search(topic, { maxResults: n });
+    return response.results.map((r) => ({
+      title: r.title,
+      url: r.url,
+      content: r.content ?? "",
+    }));
+  }
+  ```
+
+  ---
+
+  ## Strategia di Test
+
+  Nessuna UI coinvolta — nessun test e2e richiesto. Strategia esclusivamente unit con Jest + ts-jest, che viene configurato in questa spec (il progetto non ha ancora un test runner unitario).
+
+  - **Test 1 — Happy path:** mock di `@tavily/core` che restituisce un array di risultati → verifica che `searchArticles` mappi correttamente `{ title, url, content }`.
+  - **Test 2 — Chiave mancante:** `jest.resetModules()` + `delete process.env.TAVILY_API_KEY` → verifica che l'import del modulo lanci un errore con messaggio descrittivo.
+  - **Test 3 — Parametro `n`:** verifica che `client.search` venga chiamato con `maxResults: n` per il valore passato.
+  - **Test 4 — Content null/undefined:** mock di risposta Tavily con `content: undefined` → verifica che `searchArticles` restituisca `content: ""` (fallback sicuro).
+
+  ---
+
+  _Piano generato tramite ARchetipo Planning — 2026-06-18_
+tasks:
+  - id: TASK-01
+    title: Installare il pacchetto @tavily/core
+    description: Aggiungere `@tavily/core` alle dipendenze del progetto con `npm install @tavily/core`. Verificare che il pacchetto sia presente in `package.json`.
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Implementare src/lib/tavily.ts
+    description: 'Creare il file `src/lib/tavily.ts` con: guard a livello di modulo su `TAVILY_API_KEY`, inizializzazione del client Tavily, tipo esportato `TavilyArticle`, e funzione `searchArticles(topic, n)` che mappa i risultati Tavily nel tipo atteso (con fallback `content: ""` per valori null/undefined).'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Documentare TAVILY_API_KEY nelle variabili d'ambiente
+    description: Aggiungere `TAVILY_API_KEY=` a `.env.example` (crearlo se non esiste) con un commento che indica dove ottenere la chiave API da app.tavily.com.
+    type: Impl
+    status: DONE
+    ref: TASK-03
+  - id: TASK-04
+    title: Configurare Jest + ts-jest per unit test
+    description: 'Installare `jest`, `ts-jest`, `@types/jest` come devDependencies. Creare `jest.config.ts` con preset `ts-jest` e pattern `tests/unit/**/*.test.ts`. Aggiungere script `"test:unit": "jest"` a `package.json`.'
+    type: Test
+    status: DONE
+    ref: TASK-04
+  - id: TASK-05
+    title: Scrivere unit test per src/lib/tavily.ts
+    description: 'Creare `tests/unit/tavily.test.ts` con 4 test: happy path (mapping corretto), chiave mancante (throw all''import via `jest.resetModules()`), parametro `n` passato come `maxResults`, e fallback su `content` null/undefined.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-02
+      - TASK-04
+    ref: TASK-05

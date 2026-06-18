@@ -6,7 +6,7 @@ epic:
   title: Richiesta Distillato
 priority: HIGH
 points: 3
-status: TODO
+status: REVIEW
 scope: MVP
 body: |-
   #### US-008: Implementare l'API route POST /api/distill per la creazione del job

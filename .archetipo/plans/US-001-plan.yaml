@@ -57,25 +57,29 @@ tasks:
     title: Aggiungere il modello DistillJob a prisma/schema.prisma
     description: 'Aggiungere il modello DistillJob con i campi: id (String @id @default(uuid())), userId (String), topic (String), tone (String), status (String @default("PENDING")), result (Json?), createdAt (DateTime @default(now())), updatedAt (DateTime @updatedAt). Aggiungere la relazione verso User con onDelete: Cascade. Aggiungere il campo distillJobs DistillJob[] al modello User esistente. Aggiungere @@map("distill_jobs").'
     type: Impl
-    status: TODO
+    status: DONE
+    ref: TASK-01
   - id: TASK-02
     title: Aggiungere il modello DistillSource e completare le relazioni
     description: 'Aggiungere il modello DistillSource con i campi: id (String @id @default(uuid())), jobId (String), url (String), title (String), excerpt (String), position (String). Aggiungere la relazione verso DistillJob con onDelete: Cascade. Aggiungere il campo sources DistillSource[] al modello DistillJob. Aggiungere @@map("distill_sources").'
     type: Impl
-    status: TODO
+    status: DONE
     dependencies:
       - TASK-01
+    ref: TASK-02
   - id: TASK-03
     title: Applicare la migrazione e rigenerare il client Prisma
     description: Eseguire npx prisma db push per applicare i nuovi modelli al database SQLite. Eseguire npx prisma generate per aggiornare il tipo PrismaClient. Verificare che entrambi i comandi completino senza errori.
     type: Impl
-    status: TODO
+    status: DONE
     dependencies:
       - TASK-02
+    ref: TASK-03
   - id: TASK-04
     title: Scrivere il test di integrazione per DistillJob e DistillSource
     description: 'Creare scripts/test-schema.ts con test che: (1) creano User → DistillJob → DistillSource e verificano tutti i campi, (2) verificano le relazioni con include, (3) verificano il cascade delete di DistillSource alla eliminazione del job, (4) verificano il cascade delete di DistillJob alla eliminazione dell''utente. Eseguibile con npx ts-node scripts/test-schema.ts.'
     type: Test
-    status: TODO
+    status: DONE
     dependencies:
       - TASK-03
+    ref: TASK-04

@@ -1,0 +1,61 @@
+schema: archetipo/plan/v2
+spec_code: US-002
+body: |-
+  # US-002: Estendere il middleware per proteggere le rotte /distill — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-18
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-001 — Fondamenta e Infrastruttura Asincrona
+  **Priorità:** HIGH | **Punti:** 1
+
+  **User Story**
+  In qualità di utente non autenticato, voglio essere reindirizzato alla pagina di login se provo ad accedere a /distill, in modo da garantire che solo gli utenti registrati possano usare il Distillatore.
+
+  **Criteri di Accettazione**
+  - `middleware.ts` include `/distill` tra le rotte protette dal controllo della sessione
+  - Una richiesta a `/distill` senza cookie di sessione valido restituisce un redirect a `/auth/signin`
+  - Una richiesta a `/distill` con sessione valida non viene reindirizzata
+
+  ---
+
+  ## Soluzione Tecnica
+
+  Il middleware attuale protegge solo `/dashboard` con un controllo `pathname.startsWith("/dashboard")`. La soluzione estende il pattern introducendo un array `PROTECTED_PATHS` e un controllo `.some()`, così `/distill` e tutti i suoi sotto-percorsi futuri (`/distill/[id]`) sono coperti senza ulteriori modifiche.
+
+  - Refactoring di `src/middleware.ts`: sostituire la variabile `isDashboard` con `const isProtected = PROTECTED_PATHS.some(p => pathname.startsWith(p))` dove `PROTECTED_PATHS = ["/dashboard", "/distill"]`
+  - Il cookie `session` rimane il segnale di autenticazione, coerente con il boilerplate esistente
+  - Nessun nuovo file, nessuna dipendenza aggiuntiva — modifica chirurgica a un singolo file
+  - I sotto-percorsi `/distill/[id]` (previsti da US-009, US-015, US-016) sono automaticamente coperti grazie a `startsWith`
+
+  ---
+
+  ## Strategia di Test
+
+  Test e2e Playwright (framework già configurato da US-007) per verificare il comportamento del redirect a livello di routing, che non è testabile con unit test puri senza simulare il browser.
+
+  - **Scenario 1 — Redirect non autenticato:** utente senza cookie `session` visita `/distill` → viene reindirizzato a `/auth/signin`
+  - **Scenario 2 — Accesso autenticato:** utente con sessione valida visita `/distill` → non viene reindirizzato, vede la pagina del form
+  - Nessun demo video: la spec non espone nuova UI visibile, il comportamento è un redirect tecnico
+  - I test possono riusare le fixture di autenticazione già presenti in `tests/e2e/distill-form.spec.ts`
+
+  _Piano generato via ARchetipo Planning — 2026-06-18_
+tasks:
+  - id: TASK-01
+    title: Refactoring di middleware.ts per usare PROTECTED_PATHS
+    description: Sostituire la variabile isDashboard con un array PROTECTED_PATHS = ["/dashboard", "/distill"] e un controllo PROTECTED_PATHS.some(p => request.nextUrl.pathname.startsWith(p)). Il comportamento per /dashboard deve rimanere invariato. Aggiungere /distill alla lista.
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Scrivere i test e2e Playwright per il middleware /distill
+    description: 'Creare tests/e2e/middleware-distill.spec.ts con due scenari: (1) utente non autenticato visita /distill e viene reindirizzato a /auth/signin; (2) utente autenticato (via TEST_USER_EMAIL/TEST_USER_PASSWORD) visita /distill e vede il form senza redirect. Eseguire con npm run test:e2e.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02

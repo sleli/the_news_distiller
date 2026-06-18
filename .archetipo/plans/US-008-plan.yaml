@@ -1,0 +1,96 @@
+schema: archetipo/plan/v2
+spec_code: US-008
+body: |-
+  # US-008: Implementare l'API route POST /api/distill per la creazione del job — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-18
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-002 — Richiesta Distillato
+  **Priorità:** HIGH | **Punti:** 3
+
+  **User Story**
+  In qualità di Marco, utente autenticato,
+  voglio che il submit del form crei un job nel database con status PENDING,
+  in modo che il sistema possa elaborarlo in background e notificarmi al completamento.
+
+  **Criteri di Accettazione**
+  - `POST /api/distill` con body `{ topic, tone }` validi crea un `DistillJob` associato all'utente autenticato con status `PENDING`
+  - Richieste con topic vuoto o tone non valido (non in: neutro/analitico/divulgativo/critico) restituiscono 400 con messaggio d'errore
+  - Richieste senza sessione valida restituiscono 401
+  - La risposta di successo include `{ jobId: string, message: string }`
+  - Un utente non può creare job per un altro utente né accedere ai job altrui
+
+  ---
+
+  ## Soluzione Tecnica
+
+  Creare `src/app/api/distill/route.ts` come Route Handler Next.js per `POST /api/distill`, seguendo il pattern dei route handler esistenti. Il middleware protegge la pagina `/distill` ma non le API route — il route handler verifica autonomamente la sessione.
+
+  - Estrarre le costanti dei toni validi in `src/lib/tones.ts` per condividere la validazione tra API route e componenti (elimina la duplicazione con `DistillForm.tsx` che ha le stesse costanti inline)
+  - Il route handler chiama `getCurrentUser()` da `src/lib/auth.ts`: se null, risponde 401
+  - Validazione: topic non vuoto (stringa, max 300 caratteri), tone deve essere uno dei 4 valori definiti in `tones.ts` (neutro, analitico, divulgativo, critico); input non valido → 400 con messaggio d'errore
+  - Crea `DistillJob` via `prisma.distillJob.create` con `userId = user.id`, `topic`, `tone` — il campo `status` ha default `PENDING` in Prisma, nessuna migrazione necessaria
+  - Risposta di successo: HTTP 201 con body `{ jobId: job.id, message: "Richiesta in coda. Riceverai una email al completamento." }`
+  - Isolamento utente garantito dalla struttura: il `userId` è ricavato dalla sessione server-side, mai dal body della richiesta
+
+  ---
+
+  ## Strategia di Test
+
+  Playwright è l'unico framework di testing installato nel progetto. La strategia copre due livelli: test API diretti tramite la `request` fixture e un test e2e del flusso UI completo.
+
+  - **API test** (`request` fixture, file `tests/e2e/api-distill.spec.ts`): creare utente di test via `/api/auth/signup` nel `beforeAll`, ottenere cookie di sessione via `/api/auth/signin`, poi verificare: 401 senza cookie, 400 con topic vuoto, 400 con tone non valido, 201 con payload valido + struttura risposta `{ jobId, message }`
+  - **E2E test**: flusso completo sign-in → naviga /distill → inserisce topic → seleziona tono → click Distilla → intercetta risposta `POST /api/distill` via `page.waitForResponse` e verifica status 201 e presenza di `jobId` nel body
+  - Video abilitato per ogni scenario tramite `test.use({ video: 'on' })`; output in `docs/test-results/US-008/`
+
+  ### Test E2E — Simulazione Utente
+
+  **Framework:** Playwright
+  **Video recording:** Abilitato per ogni scenario (`test.use({ video: 'on' })`)
+  **Output video:** `docs/test-results/US-008/`
+
+  | Scenario | Descrizione del flusso utente |
+  |---|---|
+  | Utente autenticato crea job | Login via /auth/signin, naviga su /distill, inserisce topic, seleziona tono, click Distilla, intercetta risposta POST /api/distill e verifica status 201 e presenza di jobId |
+  | Tentativo senza sessione (API) | Richiesta diretta POST /api/distill senza cookie via request fixture → verifica risposta 401 |
+  | Input non valido (API) | Richiesta POST /api/distill con topic vuoto via request fixture → verifica risposta 400 con messaggio d'errore |
+
+  ---
+
+  _Piano generato tramite ARchetipo Planning — 2026-06-18_
+tasks:
+  - id: TASK-01
+    title: Creare src/lib/tones.ts con le costanti dei toni validi
+    description: 'Esportare l''array VALID_TONES (chiavi valide: neutro, analitico, divulgativo, critico) e il tipo ToneKey. Queste costanti vengono usate sia dalla API route per la validazione che possono in futuro sostituire le costanti inline in DistillForm.tsx.'
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Creare src/app/api/distill/route.ts con handler POST
+    description: 'Route handler Next.js per POST /api/distill: (1) chiamare getCurrentUser() — se null rispondere 401, (2) validare topic (non vuoto, max 300 chars) e tone (deve essere in VALID_TONES) — se non valido rispondere 400, (3) creare DistillJob via prisma con userId=user.id, topic, tone, (4) rispondere 201 con { jobId: job.id, message: ''Richiesta in coda. Riceverai una email al completamento.'' }.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Playwright API test per POST /api/distill
+    description: 'Creare tests/e2e/api-distill.spec.ts. Nel beforeAll registrare un utente di test via /api/auth/signup e ottenere il cookie di sessione via /api/auth/signin. Testare: 401 senza cookie di sessione, 400 con topic vuoto, 400 con tone non valido (es. ''sconosciuto''), 201 con payload valido verificando che la risposta contenga jobId e message.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-03
+  - id: TASK-04
+    title: Playwright E2E test — flusso sign-in → submit distillato
+    description: 'Aggiungere scenario e2e in tests/e2e/distill-form.spec.ts (creare se non esiste). Abilitare video con test.use({ video: ''on'' }). Flusso: sign-in con utente di test, navigare /distill, inserire topic valido, selezionare tono, click Distilla, usare page.waitForResponse per intercettare POST /api/distill e verificare status 201 e presenza di jobId nel body JSON.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-04

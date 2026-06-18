@@ -6,7 +6,7 @@ epic:
   title: Fondamenta e Infrastruttura Asincrona
 priority: HIGH
 points: 2
-status: TODO
+status: REVIEW
 scope: MVP
 body: |-
   #### US-003: Implementare il client Tavily per il harvesting di articoli

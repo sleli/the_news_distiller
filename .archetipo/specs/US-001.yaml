@@ -6,7 +6,7 @@ epic:
   title: Fondamenta e Infrastruttura Asincrona
 priority: HIGH
 points: 3
-status: PLANNED
+status: REVIEW
 scope: MVP
 body: |-
   #### US-001: Aggiungere le tabelle DistillJob e DistillSource allo schema Prisma
