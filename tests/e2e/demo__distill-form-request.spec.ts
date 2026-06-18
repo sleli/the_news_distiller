@@ -58,12 +58,20 @@ test('Marco visits /distill, enters topic, selects tone, and submits', async ({ 
   // Step 6: Verify submit button is now active (enabled)
   const submitBtn = page.getByTestId('submit-button');
   await expect(submitBtn).toBeEnabled();
-
-  // The submit button should have the red styling when enabled
-  // (visual check — the button is labeled "Distilla")
   await expect(submitBtn).toContainText('Distilla');
 
-  // Note: We do NOT click submit in the demo to avoid triggering the 404 API call
-  // (US-008 — the /api/distill endpoint — is not yet implemented).
-  // The demo demonstrates the form is fully interactive and ready.
+  // Step 7: Submit the form and verify the API response
+  const [response] = await Promise.all([
+    page.waitForResponse((res) => res.url().includes('/api/distill') && res.request().method() === 'POST'),
+    submitBtn.click(),
+  ]);
+
+  expect(response.status()).toBe(201);
+  const body = await response.json();
+  expect(typeof body.jobId).toBe('string');
+  expect(body.jobId).toBeTruthy();
+  expect(typeof body.message).toBe('string');
+
+  // Hold end state visible so the video captures the outcome
+  await page.waitForTimeout(1500);
 });
