@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs";
 import type { TavilyArticle } from "../../src/lib/tavily";
 import type { DistillResult } from "../../src/lib/claude";
+import { sendDistillEmail } from "../../src/lib/email";
 
 const TEST_DB_PATH = path.join(__dirname, "test-integration.db");
 const TEST_DB_URL = `file:${TEST_DB_PATH}`;
@@ -90,5 +91,67 @@ describe("integrazione: pollOnce → processJob → DONE", () => {
 
     const sourceCount = await prisma.distillSource.count({ where: { jobId: job.id } });
     expect(sourceCount).toBe(FIXTURE_ARTICLES.length);
+  });
+});
+
+describe("integrazione: errore email non impatta lo status del job", () => {
+  it("job diventa DONE anche quando sendDistillEmail lancia eccezione", async () => {
+    (sendDistillEmail as jest.Mock).mockRejectedValueOnce(new Error("Resend error"));
+
+    const user = await prisma.user.create({
+      data: {
+        email: "integration-email-err@test.com",
+        passwordHash: "hash",
+        name: "Test User Email Err",
+      },
+    });
+
+    const job = await prisma.distillJob.create({
+      data: {
+        userId: user.id,
+        topic: "Email Error Topic",
+        tone: "neutro",
+        status: "PENDING",
+      },
+    });
+
+    const { pollOnce } = await import("../../worker/index");
+    await pollOnce();
+
+    const updatedJob = await prisma.distillJob.findUnique({ where: { id: job.id } });
+    expect(updatedJob?.status).toBe("DONE");
+  });
+});
+
+describe("integrazione: recoverStuckJobs reimposta job RUNNING bloccati", () => {
+  it("job RUNNING con updatedAt oltre soglia viene impostato a FAILED", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: "integration-stuck@test.com",
+        passwordHash: "hash",
+        name: "Test User Stuck",
+      },
+    });
+
+    const job = await prisma.distillJob.create({
+      data: {
+        userId: user.id,
+        topic: "Stuck Job Topic",
+        tone: "neutro",
+        status: "RUNNING",
+      },
+    });
+
+    // Simulate being 11 minutes in the future so the job (created "now") appears stuck
+    const realNow = Date.now();
+    jest.spyOn(Date, "now").mockReturnValue(realNow + 11 * 60 * 1000);
+
+    const { pollOnce } = await import("../../worker/index");
+    await pollOnce();
+
+    jest.restoreAllMocks();
+
+    const updatedJob = await prisma.distillJob.findUnique({ where: { id: job.id } });
+    expect(updatedJob?.status).toBe("FAILED");
   });
 });

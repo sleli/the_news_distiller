@@ -6,31 +6,36 @@ tasks:
     title: Isolare gli errori Resend in worker/processor.ts
     description: Wrappare la chiamata `sendDistillEmail` in un blocco try/catch separato dentro `processJobFull()`. In caso di eccezione, loggare l'errore con `console.error` ma non rilanciarlo — il job è già stato aggiornato a DONE prima di questa chiamata, quindi l'errore email non deve influenzare il suo status finale.
     type: Impl
-    status: TODO
+    status: DONE
+    ref: TASK-01
   - id: TASK-02
     title: Aggiungere recoverStuckJobs() e integrarla in pollOnce()
     description: 'In `worker/index.ts`: (1) esportare `STUCK_JOB_THRESHOLD_MS = 10 * 60 * 1000`; (2) implementare `export async function recoverStuckJobs(prisma: PrismaClient)` che chiama `findMany` per i job con `status=RUNNING` e `updatedAt < new Date(Date.now() - STUCK_JOB_THRESHOLD_MS)`, poi aggiorna ciascuno a `status: FAILED, result: { error: ''...'' }` con `update` in loop; (3) chiamare `await recoverStuckJobs(prisma)` all''inizio di `pollOnce()` prima del `findMany` dei PENDING.'
     type: Impl
-    status: TODO
+    status: DONE
+    ref: TASK-02
   - id: TASK-03
     title: 'Unit test: email error isolation in processor.test.ts'
     description: 'Aggiungere un describe `caso errore: sendDistillEmail lancia eccezione` in `tests/unit/processor.test.ts`. Il mock di `sendDistillEmail` viene configurato con `mockRejectedValueOnce(new Error(''Resend error''))`. Verificare che: `processJobFull` risolve senza eccezione, `mockUpdate` è stato chiamato con `status: ''DONE''`, `mockCreateMany` è stato chiamato correttamente. Spiare `console.error` per verificare il log dell''errore.'
     type: Test
-    status: TODO
+    status: DONE
     dependencies:
       - TASK-01
+    ref: TASK-03
   - id: TASK-04
     title: 'Unit test: recoverStuckJobs() in worker.test.ts'
     description: 'Aggiungere un describe `recoverStuckJobs` in `tests/unit/worker.test.ts`. Usare `jest.spyOn(Date, ''now'')` per restituire un timestamp fisso. Caso 1: job con `updatedAt` backdatato oltre soglia → `mockFindMany` restituisce il job, `mockUpdate` viene chiamato con `status: FAILED`. Caso 2: job con `updatedAt` recente → `mockFindMany` restituisce job, ma `mockUpdate` non viene chiamato. Aggiungere `findMany` al mock PrismaClient per `distillJob` (già presente nel mock esistente).'
     type: Test
-    status: TODO
+    status: DONE
     dependencies:
       - TASK-02
+    ref: TASK-04
   - id: TASK-05
     title: 'Integration test: email failure + stuck job recovery su DB reale'
     description: 'Estendere `tests/integration/worker-poll.test.ts` con due nuovi test nel ciclo di integrazione: (1) Configurare il mock di `sendDistillEmail` per lanciare eccezione, creare job PENDING, chiamare `pollOnce()`, verificare che `updatedJob.status === ''DONE''`. (2) Creare job con `status: ''RUNNING''`, backdatare `updated_at` via `prisma.$executeRaw(''UPDATE distill_jobs SET updated_at = datetime("now", "-11 minutes") WHERE id = ?'', jobId)`, chiamare `pollOnce()`, verificare che `updatedJob.status === ''FAILED''`.'
     type: Test
-    status: TODO
+    status: DONE
     dependencies:
       - TASK-03
       - TASK-04
+    ref: TASK-05

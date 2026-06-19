@@ -4,6 +4,7 @@ import { processJobFull } from "./processor";
 const prisma = new PrismaClient();
 
 const POLL_INTERVAL_MS = Number(process.env.WORKER_POLL_INTERVAL_MS ?? 5000);
+export const STUCK_JOB_THRESHOLD_MS = 10 * 60 * 1000;
 
 export async function processJob(jobId: string): Promise<void> {
   const claimed = await prisma.distillJob.updateMany({
@@ -25,7 +26,22 @@ export async function processJob(jobId: string): Promise<void> {
   }
 }
 
+export async function recoverStuckJobs(prismaClient: PrismaClient): Promise<void> {
+  const threshold = new Date(Date.now() - STUCK_JOB_THRESHOLD_MS);
+  const stuckJobs = await prismaClient.distillJob.findMany({
+    where: { status: "RUNNING", updatedAt: { lt: threshold } },
+  });
+  for (const job of stuckJobs) {
+    await prismaClient.distillJob.update({
+      where: { id: job.id },
+      data: { status: "FAILED", result: { error: "Job bloccato: timeout superato" } },
+    });
+    console.warn(`[worker] job ${job.id} bloccato → FAILED`);
+  }
+}
+
 export async function pollOnce(): Promise<void> {
+  await recoverStuckJobs(prisma);
   const pendingJobs = await prisma.distillJob.findMany({ where: { status: "PENDING" } });
   if (pendingJobs.length === 0) {
     console.log("[worker] nessun job PENDING");

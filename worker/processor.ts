@@ -40,5 +40,9 @@ export async function processJobFull(jobId: string, prisma: PrismaClient): Promi
 
   await prisma.distillSource.createMany({ data: sourceData });
 
-  await sendDistillEmail(job.user.email, job.topic, result, jobId);
+  try {
+    await sendDistillEmail(job.user.email, job.topic, result, jobId);
+  } catch (err) {
+    console.error(`[processor] errore invio email per job ${jobId}:`, err);
+  }
 }

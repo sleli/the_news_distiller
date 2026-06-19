@@ -27,8 +27,61 @@ describe("worker/index.ts", () => {
     mockProcessJobFull.mockReset();
   });
 
+  describe("recoverStuckJobs", () => {
+    it("aggiorna a FAILED il job con updatedAt oltre soglia", async () => {
+      const fixedNow = 1_700_000_000_000;
+      jest.spyOn(Date, "now").mockReturnValue(fixedNow);
+
+      const stuckJob = { id: "job-stuck" };
+      mockFindMany.mockResolvedValueOnce([stuckJob]);
+      mockUpdate.mockResolvedValueOnce({});
+
+      const { recoverStuckJobs, STUCK_JOB_THRESHOLD_MS } = await import("../../worker/index");
+
+      const mockPrismaLocal = {
+        distillJob: { findMany: mockFindMany, update: mockUpdate },
+      } as never;
+
+      await recoverStuckJobs(mockPrismaLocal);
+
+      expect(mockFindMany).toHaveBeenCalledWith({
+        where: {
+          status: "RUNNING",
+          updatedAt: { lt: new Date(fixedNow - STUCK_JOB_THRESHOLD_MS) },
+        },
+      });
+      expect(mockUpdate).toHaveBeenCalledWith({
+        where: { id: "job-stuck" },
+        data: { status: "FAILED", result: { error: expect.any(String) } },
+      });
+
+      jest.restoreAllMocks();
+    });
+
+    it("non chiama update se il job ha updatedAt recente", async () => {
+      const fixedNow = 1_700_000_000_000;
+      jest.spyOn(Date, "now").mockReturnValue(fixedNow);
+
+      mockFindMany.mockResolvedValueOnce([]);
+      const { recoverStuckJobs } = await import("../../worker/index");
+
+      const mockPrismaLocal = {
+        distillJob: { findMany: mockFindMany, update: mockUpdate },
+      } as never;
+
+      await recoverStuckJobs(mockPrismaLocal);
+
+      expect(mockUpdate).not.toHaveBeenCalled();
+
+      jest.restoreAllMocks();
+    });
+  });
+
   describe("pollOnce", () => {
     it("non chiama updateMany se non ci sono job PENDING", async () => {
+      // primo findMany: recoverStuckJobs (nessun job RUNNING stuck)
+      mockFindMany.mockResolvedValueOnce([]);
+      // secondo findMany: pollOnce (nessun job PENDING)
       mockFindMany.mockResolvedValueOnce([]);
 
       const { pollOnce } = await import("../../worker/index");
@@ -39,6 +92,9 @@ describe("worker/index.ts", () => {
     });
 
     it("elabora tutti i job PENDING trovati chiamando processJobFull per ciascuno", async () => {
+      // primo findMany: recoverStuckJobs (nessun job RUNNING stuck)
+      mockFindMany.mockResolvedValueOnce([]);
+      // secondo findMany: pollOnce job PENDING
       mockFindMany.mockResolvedValueOnce([
         { id: "job-1", topic: "AI", tone: "neutro" },
         { id: "job-2", topic: "Sport", tone: "neutro" },

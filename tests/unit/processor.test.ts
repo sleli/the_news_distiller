@@ -166,6 +166,34 @@ describe("worker/processor.ts — processJobFull", () => {
     });
   });
 
+  describe("caso errore: sendDistillEmail lancia eccezione", () => {
+    it("processJobFull risolve senza eccezione, job aggiornato DONE, createMany chiamato, errore loggato", async () => {
+      mockFindUniqueOrThrow.mockResolvedValueOnce(FIXTURE_JOB);
+      mockSearchArticles.mockResolvedValueOnce(FIXTURE_ARTICLES);
+      mockDistillArticles.mockResolvedValueOnce(FIXTURE_RESULT);
+      mockUpdate.mockResolvedValueOnce({});
+      mockCreateMany.mockResolvedValueOnce({ count: FIXTURE_ARTICLES.length });
+      mockSendDistillEmail.mockRejectedValueOnce(new Error("Resend error"));
+
+      const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const { processJobFull } = await import("../../worker/processor");
+      await expect(processJobFull("job-abc", mockPrisma)).resolves.toBeUndefined();
+
+      expect(mockUpdate).toHaveBeenCalledWith({
+        where: { id: "job-abc" },
+        data: { status: "DONE", result: FIXTURE_RESULT },
+      });
+      expect(mockCreateMany).toHaveBeenCalledTimes(1);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining("errore invio email"),
+        expect.any(Error)
+      );
+
+      consoleSpy.mockRestore();
+    });
+  });
+
   describe("caso errore: distillArticles lancia errore di validazione payload", () => {
     it("propaga l'errore di validazione senza chiamare prisma.distillJob.update né prisma.distillSource.createMany", async () => {
       mockFindUniqueOrThrow.mockResolvedValueOnce(FIXTURE_JOB);
