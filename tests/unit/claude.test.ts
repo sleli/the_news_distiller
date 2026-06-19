@@ -66,7 +66,11 @@ describe("src/lib/claude.ts", () => {
           type: "tool_use",
           id: "tool_02",
           name: "extract_distillation",
-          input: { summary: "S", positions: [], sources: [] },
+          input: {
+            summary: "S",
+            positions: [{ label: "l", headline: "h", body: "b", sourceRefs: ["r"] }],
+            sources: [{ title: "T", url: "https://ex.com" }],
+          },
         },
       ],
     });
@@ -101,5 +105,81 @@ describe("src/lib/claude.ts", () => {
         "critico"
       )
     ).rejects.toThrow("tool_use");
+  });
+
+  describe("validateDistillResult", () => {
+    const VALID_PAYLOAD = {
+      summary: "Sintesi valida",
+      positions: [
+        {
+          label: "pos-a",
+          headline: "Titolo A",
+          body: "Corpo A",
+          sourceRefs: ["ref-1"],
+        },
+      ],
+      sources: [{ title: "Fonte 1", url: "https://example.com/1" }],
+    };
+
+    it("payload valido completo — ritorna DistillResult senza errori", async () => {
+      const { validateDistillResult } = await import("@/lib/claude");
+      expect(validateDistillResult(VALID_PAYLOAD)).toEqual(VALID_PAYLOAD);
+    });
+
+    it("summary mancante — lancia Error", async () => {
+      const { validateDistillResult } = await import("@/lib/claude");
+      const payload = { ...VALID_PAYLOAD, summary: undefined };
+      expect(() => validateDistillResult(payload)).toThrow();
+    });
+
+    it("posizione con sourceRefs vuoto — lancia Error con frammento JSON nel messaggio", async () => {
+      const { validateDistillResult } = await import("@/lib/claude");
+      const payload = {
+        ...VALID_PAYLOAD,
+        positions: [{ ...VALID_PAYLOAD.positions[0], sourceRefs: [] }],
+      };
+      expect(() => validateDistillResult(payload)).toThrow(/sourceRefs/);
+    });
+
+    it("fonte con url mancante — lancia Error", async () => {
+      const { validateDistillResult } = await import("@/lib/claude");
+      const payload = {
+        ...VALID_PAYLOAD,
+        sources: [{ title: "Fonte senza URL", url: "" }],
+      };
+      expect(() => validateDistillResult(payload)).toThrow();
+    });
+
+    it("input null — lancia Error", async () => {
+      const { validateDistillResult } = await import("@/lib/claude");
+      expect(() => validateDistillResult(null)).toThrow();
+    });
+
+    it("input stringa — lancia Error", async () => {
+      const { validateDistillResult } = await import("@/lib/claude");
+      expect(() => validateDistillResult("stringa non valida")).toThrow();
+    });
+
+    it("distillArticles con payload tool_use invalido — lancia errore di validazione", async () => {
+      mockCreate.mockResolvedValueOnce({
+        content: [
+          {
+            type: "tool_use",
+            id: "tool_invalid",
+            name: "extract_distillation",
+            input: { summary: "", positions: [], sources: [] },
+          },
+        ],
+      });
+
+      const { distillArticles } = await import("@/lib/claude");
+      await expect(
+        distillArticles(
+          [{ title: "Art", url: "https://ex.com", content: "Testo" }],
+          "topic",
+          "neutro"
+        )
+      ).rejects.toThrow(/Payload Claude non valido/);
+    });
   });
 });

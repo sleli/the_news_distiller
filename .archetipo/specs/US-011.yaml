@@ -6,7 +6,7 @@ epic:
   title: Elaborazione Asincrona
 priority: HIGH
 points: 3
-status: TODO
+status: REVIEW
 blocked_by:
   - US-010
 scope: MVP

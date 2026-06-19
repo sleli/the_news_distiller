@@ -1,0 +1,81 @@
+schema: archetipo/plan/v2
+spec_code: US-011
+body: |-
+  # US-011: Validare e strutturare l'output AI con sintesi, posizioni e fonti — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-19
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-003 — Elaborazione Asincrona
+  **Priorità:** HIGH | **Punti:** 3
+
+  **User Story**
+  In qualità di Marco, utente che riceve il distillato, voglio che il distillato sia strutturato con una sintesi generale, sezioni per ogni posizione identificata e le fonti citate, in modo da leggere le divergenze e verificare ogni affermazione cliccando sulla fonte.
+
+  **Criteri di Accettazione**
+  - [ ] Il prompt inviato a Claude richiede esplicitamente lo schema: `{ summary, positions: [{label, headline, body, sourceRefs[]}], sources: [{title, url}] }`
+  - [ ] Ogni posizione referenzia almeno una fonte tramite indice in `sourceRefs`
+  - [ ] Il risultato ricevuto da Claude è validato contro lo schema prima di essere salvato
+  - [ ] Se la validazione fallisce, il job viene impostato a `FAILED` (con eventuale log del payload non valido)
+
+  ---
+
+  ## Soluzione Tecnica
+
+  La logica esistente in `src/lib/claude.ts` usa già tool use forzato (`tool_choice: { type: "tool", name: "extract_distillation" }`) e definisce `DistillResult` con la struttura corretta, ma restituisce il risultato con un cast `as DistillResult` senza alcuna validazione runtime. Questa spec aggiunge il layer di validazione mancante.
+
+  **Approccio:**
+
+  - Aggiungere `validateDistillResult(input: unknown): DistillResult` in `src/lib/claude.ts`: verifica top-level (`summary` stringa, `positions` array, `sources` array), ogni posizione (`label`, `headline`, `body` stringhe; `sourceRefs` array non vuoto ≥1 elemento), ogni fonte (`title`, `url` stringhe non vuote). In caso di fallimento lancia `Error` con messaggio descrittivo che include un frammento JSON del payload ricevuto (max 500 caratteri) — il worker già logga `err.message` via `console.error`, garantendo la traccia del payload invalido.
+  - Sostituire `return toolUse.input as DistillResult` con `return validateDistillResult(toolUse.input)` in `distillArticles()`.
+  - Aggiungere `minItems: 1` all'array `sourceRefs` nel `DISTILL_TOOL` JSON Schema — comunicare il vincolo a Claude riduce la probabilità di ricevere payload invalidi.
+  - **Nessuna modifica a `processor.ts` o `worker/index.ts`**: la propagazione dell'errore verso lo stato FAILED è già implementata in US-010 (il catch del worker imposta `status: "FAILED"` e `result: { error: message }`).
+
+  **Flusso di validazione:**
+  ```
+  distillArticles() → toolUse.input → validateDistillResult() → DistillResult (ok) | Error (validation fail)
+                                                                          ↓
+                                                               processJobFull() → errore propagato
+                                                                          ↓
+                                                               worker catch → status FAILED + log
+  ```
+
+  ---
+
+  ## Strategia di Test
+
+  Questa spec è puramente backend/worker — nessun test e2e necessario. Il focus è sulla correttezza della funzione di validazione e sulla propagazione degli errori.
+
+  - **Unit tests per `validateDistillResult`** (`tests/unit/claude.test.ts`): payload valido → ritorna DistillResult senza errori; `summary` mancante → throw; `positions` con `sourceRefs` vuoto → throw con messaggio che include il frammento JSON del payload; `sources` con `url` mancante → throw; input `null` o stringa → throw.
+  - **Test di integrazione della validazione in `distillArticles`** (`tests/unit/claude.test.ts`): mockare la risposta Anthropic con un `tool_use` block contenente un payload invalido, verificare che `distillArticles` lanci un errore di validazione.
+  - **Test aggiuntivo in `tests/unit/processor.test.ts`**: mock `distillArticles` che lancia un errore di validazione con payload nel messaggio → `processJobFull` propaga l'errore senza chiamare `update` né `createMany`.
+
+  _Piano generato tramite ARchetipo Planning — 2026-06-19_
+tasks:
+  - id: TASK-01
+    title: Aggiungere validateDistillResult() a src/lib/claude.ts e integrare in distillArticles()
+    description: 'Implementare `validateDistillResult(input: unknown): DistillResult` che verifica: (1) `summary` è stringa non vuota, (2) `positions` è array non vuoto dove ogni elemento ha `label`, `headline`, `body` come stringhe e `sourceRefs` come array con almeno 1 elemento, (3) `sources` è array dove ogni elemento ha `title` e `url` come stringhe non vuote. In caso di fallimento lancia `Error` con messaggio descrittivo che include `JSON.stringify(input).substring(0, 500)`. Aggiornare `distillArticles()` sostituendo `return toolUse.input as DistillResult` con `return validateDistillResult(toolUse.input)`. Aggiungere anche `minItems: 1` a `sourceRefs` nel `DISTILL_TOOL` JSON Schema.'
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Unit test per validateDistillResult in tests/unit/claude.test.ts
+    description: 'Testare `validateDistillResult` direttamente: (1) payload valido completo → ritorna DistillResult senza errori; (2) `summary` mancante → throw Error; (3) posizione con `sourceRefs: []` → throw con frammento JSON nel messaggio; (4) fonte con `url` mancante → throw; (5) input `null` → throw; (6) input stringa → throw. Aggiungere anche un test che mocka la risposta Anthropic SDK con `tool_use` contenente payload invalido e verifica che `distillArticles()` lanci un errore di validazione.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Test aggiuntivo in tests/unit/processor.test.ts per propagazione errore di validazione
+    description: 'Aggiungere un caso di test nel describe esistente di `processJobFull`: mock `distillArticles` che lancia `new Error(''Payload Claude non valido: {"summary":...}'')` (simula errore di validazione con payload nel messaggio) → verificare che `processJobFull` rilanci l''errore senza chiamare `prisma.distillJob.update` né `prisma.distillSource.createMany`.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-01
+      - TASK-02
+    ref: TASK-03

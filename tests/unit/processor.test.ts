@@ -165,4 +165,22 @@ describe("worker/processor.ts — processJobFull", () => {
       expect(mockCreateMany).not.toHaveBeenCalled();
     });
   });
+
+  describe("caso errore: distillArticles lancia errore di validazione payload", () => {
+    it("propaga l'errore di validazione senza chiamare prisma.distillJob.update né prisma.distillSource.createMany", async () => {
+      mockFindUniqueOrThrow.mockResolvedValueOnce(FIXTURE_JOB);
+      mockSearchArticles.mockResolvedValueOnce(FIXTURE_ARTICLES);
+      mockDistillArticles.mockRejectedValueOnce(
+        new Error('Payload Claude non valido: {"summary":null,"positions":[],"sources":[]}')
+      );
+
+      const { processJobFull } = await import("../../worker/processor");
+      await expect(processJobFull("job-abc", mockPrisma)).rejects.toThrow(
+        "Payload Claude non valido"
+      );
+
+      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(mockCreateMany).not.toHaveBeenCalled();
+    });
+  });
 });

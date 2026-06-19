@@ -9,6 +9,8 @@ epics:
     title: Elaborazione Asincrona
   - code: EP-004
     title: Notifica e Consultazione
+  - code: EP-005
+    title: Configurazione e Personalizzazione
 order:
   - US-001
   - US-002
@@ -26,3 +28,6 @@ order:
   - US-014
   - US-015
   - US-016
+  - US-017
+  - US-018
+  - US-019

@@ -56,6 +56,7 @@ const DISTILL_TOOL: Anthropic.Tool = {
               type: "array",
               description: "Riferimenti alle fonti che supportano questa posizione.",
               items: { type: "string" },
+              minItems: 1,
             },
           },
           required: ["label", "headline", "body", "sourceRefs"],
@@ -108,5 +109,51 @@ export async function distillArticles(
     throw new Error("Claude non ha restituito un tool_use block come atteso.");
   }
 
-  return toolUse.input as DistillResult;
+  return validateDistillResult(toolUse.input);
+}
+
+export function validateDistillResult(input: unknown): DistillResult {
+  const snippet = JSON.stringify(input).substring(0, 500);
+
+  if (input === null || typeof input !== "object" || Array.isArray(input)) {
+    throw new Error(`Payload Claude non valido: ${snippet}`);
+  }
+
+  const obj = input as Record<string, unknown>;
+
+  if (typeof obj.summary !== "string" || obj.summary.trim() === "") {
+    throw new Error(`Payload Claude non valido — summary mancante o vuoto: ${snippet}`);
+  }
+
+  if (!Array.isArray(obj.positions) || obj.positions.length === 0) {
+    throw new Error(`Payload Claude non valido — positions deve essere array non vuoto: ${snippet}`);
+  }
+
+  for (const pos of obj.positions) {
+    if (pos === null || typeof pos !== "object" || Array.isArray(pos)) {
+      throw new Error(`Payload Claude non valido — position non è un oggetto: ${snippet}`);
+    }
+    const p = pos as Record<string, unknown>;
+    if (typeof p.label !== "string") throw new Error(`Payload Claude non valido — position.label mancante: ${snippet}`);
+    if (typeof p.headline !== "string") throw new Error(`Payload Claude non valido — position.headline mancante: ${snippet}`);
+    if (typeof p.body !== "string") throw new Error(`Payload Claude non valido — position.body mancante: ${snippet}`);
+    if (!Array.isArray(p.sourceRefs) || p.sourceRefs.length === 0) {
+      throw new Error(`Payload Claude non valido — sourceRefs deve avere almeno 1 elemento: ${snippet}`);
+    }
+  }
+
+  if (!Array.isArray(obj.sources)) {
+    throw new Error(`Payload Claude non valido — sources deve essere array: ${snippet}`);
+  }
+
+  for (const src of obj.sources) {
+    if (src === null || typeof src !== "object" || Array.isArray(src)) {
+      throw new Error(`Payload Claude non valido — source non è un oggetto: ${snippet}`);
+    }
+    const s = src as Record<string, unknown>;
+    if (typeof s.title !== "string" || s.title.trim() === "") throw new Error(`Payload Claude non valido — source.title mancante: ${snippet}`);
+    if (typeof s.url !== "string" || s.url.trim() === "") throw new Error(`Payload Claude non valido — source.url mancante: ${snippet}`);
+  }
+
+  return input as DistillResult;
 }
