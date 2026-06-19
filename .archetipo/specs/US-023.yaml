@@ -6,7 +6,7 @@ epic:
   title: Richiesta Distillato
 priority: MEDIUM
 points: 3
-status: TODO
+status: REVIEW
 body: |-
   #### US-023: Bottone "Argomento del giorno" che pre-compila il topic tramite Tavily
 

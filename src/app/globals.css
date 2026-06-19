@@ -872,3 +872,4 @@ body {
   .np-settings-mode-cards { grid-template-columns: 1fr; }
   .np-settings-page-hero { grid-template-columns: 1fr; }
 }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

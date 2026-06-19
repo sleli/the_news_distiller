@@ -1,0 +1,144 @@
+schema: archetipo/plan/v2
+spec_code: US-023
+body: |-
+  # US-023: Bottone "Argomento del giorno" che pre-compila il topic tramite Tavily — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-19
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-002 — Richiesta Distillato
+  **Priorità:** MEDIUM | **Punti:** 3
+
+  **User Story**
+  In qualità di utente autenticato sulla pagina di richiesta distillato,
+  voglio premere un bottone "Argomento del giorno" per pre-compilare automaticamente il campo topic con il tema più discusso del momento,
+  in modo da trovare ispirazione senza dover pensare a un argomento di partenza.
+
+  **Criteri di Accettazione**
+  - [ ] Il bottone "Argomento del giorno" è visibile accanto al campo "Argomento da distillare"
+  - [ ] Al click, viene effettuata una chiamata a una nuova API route `GET /api/distill/trending` che usa Tavily per recuperare il topic più caldo del momento
+  - [ ] Durante la chiamata API, il bottone mostra uno spinner e risulta disabilitato
+  - [ ] Se la chiamata ha successo, il campo topic viene pre-compilato con il topic restituito
+  - [ ] Se il campo topic è già valorizzato al momento del click, viene mostrata una dialog di conferma; l'utente può scegliere "Sovrascrivi" o "Annulla"
+  - [ ] Se la chiamata API fallisce, viene mostrato un messaggio di errore inline non bloccante (es. toast)
+
+  ---
+
+  ## Soluzione Tecnica
+
+  La soluzione si articola su due layer: una nuova API route `GET /api/distill/trending` che interroga Tavily per il trending topic del momento, e l'aggiornamento del componente `DistillForm` per integrare il bottone, lo spinner, la dialog di conferma e la gestione degli errori con toast.
+
+  ### Layer API — `GET /api/distill/trending`
+
+  - **Nuova route:** `src/app/api/distill/trending/route.ts` — restituisce `{ topic: string }` con il trending topic del momento
+  - **Autenticazione:** `getCurrentUser()` → 401 se non autenticato (coerente con tutte le altre route di distill)
+  - **Tavily integration:** Aggiungere la funzione `getTrendingTopic()` in `src/lib/tavily.ts` che effettua una ricerca Tavily generica su news italiane/internazionali recenti (es. query `"notizie del giorno"` con `topic: "news"` e `maxResults: 1`) e restituisce il titolo del primo risultato come trending topic
+  - **Error handling:** `try/catch` robusto — se Tavily non è disponibile o la chiave API manca, restituire `500` con `{ error: "Impossibile recuperare il trending topic." }`
+  - **Response:** `200 { topic: string }` on success
+
+  ### Layer Client — `DistillForm`
+
+  - **Nuovo stato:** `isFetchingTrending: boolean` (controlla spinner + disabled del bottone) e `trendingError: string | null` (per il toast di errore)
+  - **Bottone:** Visibile direttamente sotto o accanto alla label "Argomento da distillare", stile vintage coerente (`np-btn` o stile inline simile agli altri bottoni del form). Il bottone mostra uno spinner SVG animato e la label "Caricamento..." durante `isFetchingTrending`
+  - **Dialog di conferma:** Usa il componente `Dialog` già presente in `src/components/ui/dialog.tsx`. Viene mostrata solo se `topic.trim() !== ""` al momento del click. Azioni: "Sovrascrivi" (sovrascrive il campo topic con il trending topic) e "Annulla" (chiude la dialog senza modifiche)
+  - **Flusso senza conferma:** Se il campo topic è vuoto, pre-compila direttamente il campo senza mostrare la dialog
+  - **Errore:** Usa il componente `Sonner` (toast, già configurato in `src/components/ui/sonner.tsx`) per mostrare l'errore non bloccante in caso di fallimento API
+  - **`data-testid`:** Aggiungere `data-testid="trending-btn"` al bottone, `data-testid="trending-confirm-dialog"` alla dialog, `data-testid="trending-overwrite-btn"` al bottone "Sovrascrivi"
+
+  ### Gestione dello stato
+
+  Flusso del bottone:
+  1. Click → se `isFetchingTrending` è true, ignorare
+  2. `setIsFetchingTrending(true)` → `fetch GET /api/distill/trending`
+  3. On success: se `topic.trim() === ""` → `setTopic(result.topic)` direttamente; altrimenti → aprire dialog di conferma con il trending topic pending in uno stato locale `pendingTrendingTopic`
+  4. On error: `toast.error("Impossibile recuperare l'argomento del giorno. Riprova.")` + `setTrendingError(errorMessage)`
+  5. `setIsFetchingTrending(false)` in entrambi i casi
+
+  ---
+
+  ## Strategia di Test
+
+  La strategia copre tre livelli: unit test per la nuova API route e la funzione Tavily, test di componente per tutti i branch di stato del bottone e della dialog nel DistillForm, e scenari e2e Playwright che simulano i flussi utente completi con video recording.
+
+  ### Test unitari — API route `GET /api/distill/trending`
+
+  - Scenario autenticato: mock `getCurrentUser` + mock `getTrendingTopic` → verifica `200 { topic }`
+  - Scenario non autenticato: mock `getCurrentUser → null` → verifica `401`
+  - Scenario errore Tavily: mock `getTrendingTopic` che lancia eccezione → verifica `500`
+
+  ### Test di componente — `DistillForm`
+
+  - Bottone visibile nella form
+  - Click con campo vuoto: fetch interceptato con mock → campo topic pre-compilato
+  - Click con campo già valorizzato: dialog di conferma visibile
+  - Click "Sovrascrivi" nella dialog: topic aggiornato, dialog chiusa
+  - Click "Annulla" nella dialog: topic non modificato, dialog chiusa
+  - Durante fetch: bottone disabilitato + spinner visibile
+  - Errore fetch: toast di errore visibile, campo topic non modificato
+
+  ### E2E Tests — Simulazione Utente
+
+  **Framework:** Playwright (configurato nel progetto, `@playwright/test`)
+  **Video recording:** Abilitato per tutti gli scenari, video salvati in `docs/test-results/US-023/`
+
+  | Scenario | Descrizione del flusso utente |
+  |---|---|
+  | Topic vuoto → pre-compilazione diretta | Utente apre `/distill` con campo topic vuoto, clicca "Argomento del giorno", vede lo spinner, il campo si pre-compila con il trending topic |
+  | Topic valorizzato → dialog → Sovrascrivi | Utente inserisce un topic, clicca "Argomento del giorno", vede la dialog, clicca "Sovrascrivi", il campo viene aggiornato con il trending topic |
+  | Topic valorizzato → dialog → Annulla | Utente inserisce un topic, clicca "Argomento del giorno", vede la dialog, clicca "Annulla", il campo rimane invariato |
+  | Errore API → toast di errore | Utente clicca "Argomento del giorno" con la route `/api/distill/trending` che risponde `500`, vede il toast di errore, il campo topic non viene modificato |
+
+  ---
+
+  _Piano generato tramite ARchetipo Planning — 2026-06-19_
+tasks:
+  - id: TASK-01
+    title: Aggiungere `getTrendingTopic()` in `src/lib/tavily.ts`
+    description: 'Aggiungere una funzione `getTrendingTopic(): Promise<string>` che usa il client Tavily esistente per cercare le news più recenti e restituisce il titolo del primo risultato come trending topic. Nessuna modifica all''interfaccia pubblica esistente.'
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Creare `GET /api/distill/trending` route
+    description: Creare `src/app/api/distill/trending/route.ts` con autenticazione via `getCurrentUser()`, chiamata a `getTrendingTopic()`, e gestione degli errori con `try/catch`. Risponde `200 { topic }` on success, `401` se non autenticato, `500` se Tavily fallisce.
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Unit test per `GET /api/distill/trending`
+    description: 'Aggiungere `tests/unit/api-distill-trending.test.ts` con i tre scenari: autenticato con successo, non autenticato (401), errore Tavily (500). Usa mock di `getCurrentUser` e `getTrendingTopic`.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-03
+  - id: TASK-04
+    title: Aggiornare `DistillForm` — bottone, spinner, dialog di conferma, gestione errori
+    description: Aggiungere `isFetchingTrending`, `pendingTrendingTopic` e `trendingError` allo stato del componente. Aggiungere il bottone 'Argomento del giorno' con spinner, e la dialog di conferma usando `src/components/ui/dialog.tsx`. Usare `sonner` per il toast di errore. Aggiungere `data-testid` su bottone, dialog e bottone 'Sovrascrivi'.
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-04
+  - id: TASK-05
+    title: Test di componente per `DistillForm` — flussi del bottone trending
+    description: 'Aggiungere test in `tests/unit/components/DistillForm.trending.test.tsx` che coprono: bottone visibile, pre-compilazione diretta (campo vuoto), dialog con conferma, dialog con annulla, spinner durante fetch, toast di errore su fallimento.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-04
+    ref: TASK-05
+  - id: TASK-06
+    title: E2E test Playwright — flussi utente completi per il bottone trending
+    description: 'Creare `tests/e2e/distill-trending.spec.ts` con i 4 scenari e2e: pre-compilazione diretta, dialog + sovrascrivi, dialog + annulla, errore API + toast. Video recording abilitato con output in `docs/test-results/US-023/`. Usare `page.route()` per mock dell''API nella route `/api/distill/trending`.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-04
+    ref: TASK-06

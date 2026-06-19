@@ -29,3 +29,17 @@ export async function searchArticles(
     content: result.content ?? "",
   }));
 }
+
+export async function getTrendingTopic(): Promise<string> {
+  const response = await client.search("notizie del giorno trending", {
+    maxResults: 1,
+    topic: "news",
+  });
+
+  const first = response.results[0];
+  if (!first?.title) {
+    throw new Error("Nessun trending topic disponibile al momento.");
+  }
+
+  return first.title;
+}
