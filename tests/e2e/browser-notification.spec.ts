@@ -72,7 +72,9 @@ test("demo__notifica-browser-al-completamento-distillato", async ({ page, contex
       return;
     }
     fetchCount++;
-    const status = fetchCount <= 2 ? "RUNNING" : "DONE";
+    // 1° poll: RUNNING (imposta la baseline) — 2° poll: DONE (fa scattare la notifica).
+    // Con 3 poll la notifica arriverebbe a ~15s, proprio al limite del timeout → flaky.
+    const status = fetchCount <= 1 ? "RUNNING" : "DONE";
     const job = {
       id: jobId,
       topic,
@@ -170,6 +172,135 @@ test("notifica non emessa se il job è già DONE al caricamento iniziale", async
     () => (window as Window & typeof globalThis & { __notificationCalls?: Array<unknown> }).__notificationCalls ?? []
   );
   expect(calls).toHaveLength(0);
+});
+
+// --- Pagina di DETTAGLIO: notifica al completamento mentre si resta sulla pagina ---
+test("dettaglio: notifica emessa quando il job passa a DONE durante il polling", async ({
+  page,
+  context,
+}) => {
+  const email = process.env.TEST_USER_EMAIL;
+  const password = process.env.TEST_USER_PASSWORD;
+
+  if (!email || !password) {
+    test.skip(true, "TEST_USER_EMAIL e TEST_USER_PASSWORD non impostati — skip");
+    return;
+  }
+
+  await context.grantPermissions(["notifications"]);
+
+  // Mock Notification (permesso già concesso) e raccolta delle chiamate
+  await page.addInitScript(() => {
+    const calls: Array<{ title: string; body: string; tag: string }> = [];
+    (window as Window & typeof globalThis & { __notificationCalls: typeof calls }).__notificationCalls = calls;
+    class MockNotification extends window.Notification {
+      constructor(title: string, opts?: NotificationOptions) {
+        super(title, opts);
+        calls.push({ title, body: (opts?.body as string) ?? "", tag: (opts?.tag as string) ?? "" });
+      }
+    }
+    Object.defineProperty(MockNotification, "permission", { get: () => "granted" });
+    (MockNotification as unknown as typeof Notification).requestPermission =
+      window.Notification.requestPermission?.bind(window.Notification);
+    window.Notification = MockNotification as unknown as typeof Notification;
+  });
+
+  // Autenticazione + creazione job (parte PENDING)
+  await page.request.post("/api/auth/signin", { data: { email, password } });
+  const createRes = await page.request.post("/api/distill", {
+    data: { topic: "Notifica dettaglio E2E", tone: "neutro" },
+  });
+  if (!createRes.ok()) {
+    test.skip(true, "Impossibile creare job di test — skip");
+    return;
+  }
+  const { jobId } = await createRes.json();
+
+  // Intercetta SOLO l'endpoint del singolo job: prime risposte RUNNING, poi DONE
+  let pollCount = 0;
+  await page.route(`**/api/distill/${jobId}`, async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.continue();
+      return;
+    }
+    pollCount++;
+    const status = pollCount <= 1 ? "RUNNING" : "DONE";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ id: jobId, topic: "Notifica dettaglio E2E", tone: "neutro", status }),
+    });
+  });
+
+  await page.goto(`/distill/${jobId}`);
+  await expect(page.getByTestId("job-status")).toBeVisible();
+
+  // Attendi che il polling rilevi la transizione e spari la notifica
+  await expect(async () => {
+    const calls = await page.evaluate(
+      () =>
+        (window as Window & typeof globalThis & {
+          __notificationCalls?: Array<{ title: string; body: string; tag: string }>;
+        }).__notificationCalls ?? []
+    );
+    expect(calls.some((c) => c.body === "Distillato pronto" && c.tag === jobId)).toBe(true);
+  }).toPass({ timeout: 15000, intervals: [1000] });
+});
+
+// --- Pagina di DETTAGLIO: banner "Abilita" quando il permesso è "default" ---
+test("dettaglio: banner Abilita appare e il click richiede il permesso", async ({ page }) => {
+  const email = process.env.TEST_USER_EMAIL;
+  const password = process.env.TEST_USER_PASSWORD;
+
+  if (!email || !password) {
+    test.skip(true, "TEST_USER_EMAIL e TEST_USER_PASSWORD non impostati — skip");
+    return;
+  }
+
+  // NON concediamo il permesso: simuliamo permission "default" e spiamo requestPermission
+  await page.addInitScript(() => {
+    let requested = false;
+    class DefaultNotification {
+      static get permission(): NotificationPermission {
+        return "default";
+      }
+      static requestPermission = async (): Promise<NotificationPermission> => {
+        requested = true;
+        (window as Window & typeof globalThis & { __permissionRequested: boolean }).__permissionRequested = true;
+        return "default";
+      };
+      constructor() {
+        /* noop */
+      }
+    }
+    (window as Window & typeof globalThis & { __permissionRequested: boolean }).__permissionRequested = requested;
+    window.Notification = DefaultNotification as unknown as typeof Notification;
+  });
+
+  await page.request.post("/api/auth/signin", { data: { email, password } });
+  const createRes = await page.request.post("/api/distill", {
+    data: { topic: "Banner abilita E2E", tone: "neutro" },
+  });
+  if (!createRes.ok()) {
+    test.skip(true, "Impossibile creare job di test — skip");
+    return;
+  }
+  const { jobId } = await createRes.json();
+
+  await page.goto(`/distill/${jobId}`);
+
+  // Il banner deve comparire (job live + permesso "default")
+  await expect(page.getByTestId("notification-prompt")).toBeVisible();
+
+  // Click su "Abilita" → deve invocare Notification.requestPermission()
+  await page.getByTestId("notification-enable").click();
+
+  await expect(async () => {
+    const requested = await page.evaluate(
+      () => (window as Window & typeof globalThis & { __permissionRequested?: boolean }).__permissionRequested ?? false
+    );
+    expect(requested).toBe(true);
+  }).toPass({ timeout: 3000, intervals: [200] });
 });
 
 test("permesso negato: nessun errore visibile e nessuna notifica", async ({ page, context }) => {

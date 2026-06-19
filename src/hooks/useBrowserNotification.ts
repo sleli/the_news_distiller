@@ -1,16 +1,20 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 type PermissionState = "granted" | "denied" | "default" | "unsupported";
 
-function getPermission(): PermissionState {
-  if (typeof Notification === "undefined") return "unsupported";
-  return Notification.permission;
-}
-
 export function useBrowserNotification() {
-  const [permission, setPermission] = useState<PermissionState>(getPermission);
+  // SSR-safe: parte sempre da "unsupported", poi legge il valore reale lato client
+  const [permission, setPermission] = useState<PermissionState>("unsupported");
+
+  useEffect(() => {
+    if (typeof Notification === "undefined") {
+      setPermission("unsupported");
+      return;
+    }
+    setPermission(Notification.permission);
+  }, []);
 
   const requestPermission = useCallback(async () => {
     if (typeof Notification === "undefined") return;
@@ -20,7 +24,8 @@ export function useBrowserNotification() {
 
   const notify = useCallback(
     (topic: string, status: "DONE" | "FAILED", jobId: string) => {
-      if (permission !== "granted") return;
+      if (typeof Notification === "undefined") return;
+      if (Notification.permission !== "granted") return;
       const body = status === "DONE" ? "Distillato pronto" : "Elaborazione fallita";
       const n = new Notification(topic, { body, tag: jobId });
       n.onclick = () => {
@@ -28,7 +33,7 @@ export function useBrowserNotification() {
         window.location.href = `/distill/${jobId}`;
       };
     },
-    [permission]
+    []
   );
 
   return { notify, permission, requestPermission };

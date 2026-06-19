@@ -76,6 +76,7 @@ export function ArchiveGrid({ initialJobs }: ArchiveGridProps) {
         >
           <span>Abilita le notifiche browser per sapere quando un distillato è pronto.</span>
           <button
+            data-testid="notification-enable"
             onClick={requestPermission}
             style={{
               fontFamily: "var(--font-deck, 'Arial Narrow', sans-serif)",

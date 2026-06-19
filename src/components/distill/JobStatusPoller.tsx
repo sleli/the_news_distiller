@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useBrowserNotification } from "@/hooks/useBrowserNotification";
 
 interface Props {
   jobId: string;
@@ -9,38 +10,12 @@ interface Props {
   initialStatus: string;
 }
 
-type PermissionState = "granted" | "denied" | "default" | "unsupported";
-
-function getPermission(): PermissionState {
-  if (typeof Notification === "undefined") return "unsupported";
-  return Notification.permission;
-}
-
 export function JobStatusPoller({ jobId, topic, initialStatus }: Props) {
   const router = useRouter();
+  const { notify, permission, requestPermission } = useBrowserNotification();
   const statusRef = useRef(initialStatus);
-  const [permission, setPermission] = useState<PermissionState>(getPermission);
 
   const isLive = initialStatus === "PENDING" || initialStatus === "RUNNING";
-
-  const requestPermission = useCallback(async () => {
-    if (typeof Notification === "undefined") return;
-    const result = await Notification.requestPermission();
-    setPermission(result);
-  }, []);
-
-  const notify = useCallback(
-    (status: "DONE" | "FAILED") => {
-      if (permission !== "granted") return;
-      const body = status === "DONE" ? "Distillato pronto" : "Elaborazione fallita";
-      const n = new Notification(topic, { body, tag: jobId });
-      n.onclick = () => {
-        window.focus();
-        window.location.href = `/distill/${jobId}`;
-      };
-    },
-    [permission, topic, jobId]
-  );
 
   useEffect(() => {
     if (!isLive) return;
@@ -53,7 +28,7 @@ export function JobStatusPoller({ jobId, topic, initialStatus }: Props) {
         if (data.status !== statusRef.current) {
           statusRef.current = data.status;
           if (data.status === "DONE" || data.status === "FAILED") {
-            notify(data.status);
+            notify(topic, data.status, jobId);
             router.refresh();
           }
         }
@@ -63,9 +38,9 @@ export function JobStatusPoller({ jobId, topic, initialStatus }: Props) {
     }, 5000);
 
     return () => clearInterval(id);
-  }, [isLive, jobId, notify, router]);
+  }, [isLive, jobId, topic, notify, router]);
 
-  if (!isLive || permission === "granted" || permission === "unsupported" || permission === "denied") {
+  if (!isLive || permission !== "default") {
     return null;
   }
 
@@ -89,6 +64,7 @@ export function JobStatusPoller({ jobId, topic, initialStatus }: Props) {
     >
       <span>Abilita le notifiche browser per sapere quando il distillato è pronto.</span>
       <button
+        data-testid="notification-enable"
         onClick={requestPermission}
         style={{
           fontFamily: "var(--font-deck, 'Arial Narrow', sans-serif)",
