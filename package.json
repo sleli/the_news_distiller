@@ -11,7 +11,8 @@
     "db:generate": "prisma generate",
     "postinstall": "prisma generate && prisma db push",
     "test:e2e": "playwright test",
-    "test:unit": "jest"
+    "test:unit": "jest",
+    "worker": "tsx worker/index.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.2",
@@ -44,6 +45,7 @@
     "prisma": "^6.5.0",
     "tailwindcss": "^4.1.4",
     "ts-jest": "^29.4.11",
+    "tsx": "^4.22.4",
     "typescript": "^5.8.3"
   }
 }

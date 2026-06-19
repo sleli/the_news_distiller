@@ -1,0 +1,75 @@
+schema: archetipo/plan/v2
+spec_code: US-006
+body: |-
+  # US-006: Implementare il worker Node.js con loop di polling sul database — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-19
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-001 — Fondamenta e Infrastruttura Asincrona
+  **Priorità:** HIGH | **Punti:** 3
+
+  **User Story**
+  In qualità di sviluppatore, voglio un processo worker separato in `worker/index.ts` che rilevi periodicamente i job in coda e li elabori, in modo da processare le richieste di distillazione in modo asincrono senza bloccare il server Next.js.
+
+  **Criteri di Accettazione**
+  - [ ] `package.json` include lo script `"worker"` che avvia il processo worker
+  - [ ] Il worker fa polling su `DistillJob` per status `PENDING` ogni `WORKER_POLL_INTERVAL_MS` ms (default 5000)
+  - [ ] Prima di elaborare un job, il worker aggiorna il suo status a `RUNNING`
+  - [ ] Il worker imposta status `DONE` o `FAILED` al termine o in caso di errore
+  - [ ] I log indicano: avvio, job rilevato, stato finale di ogni job elaborato
+
+  ---
+
+  ## Soluzione Tecnica
+
+  Il worker è un processo Node.js standalone eseguito tramite `tsx`, con un loop di polling implementato via `setInterval`. Utilizza una propria istanza di `PrismaClient` (non il singleton `globalThis` di Next.js) e isola la logica di elaborazione in una funzione `handleJob()` stub, da sostituire in US-010.
+
+  - **Esecuzione TypeScript**: `tsx` (aggiunto come devDependency) esegue `worker/index.ts` direttamente senza build step, con supporto nativo per TypeScript e ES modules
+  - **Istanza Prisma dedicata**: `new PrismaClient()` diretta nel worker — il singleton di `src/lib/prisma.ts` è pensato per hot-reload di Next.js e non è appropriato per processi long-running
+  - **State machine job**: `PENDING → RUNNING → DONE | FAILED`. La transizione a `RUNNING` usa `updateMany` condizionale su `status = "PENDING"` per prevenire race conditions in scenari multi-worker futuri
+  - **`handleJob()` stub**: funzione asincrona placeholder che risolve immediatamente. US-010 la sostituirà con la pipeline reale (Tavily → Claude → Resend)
+  - **Rischio US-010**: `claude.ts`, `tavily.ts` e `email.ts` hanno `import "server-only"` — in US-010 sarà necessario creare versioni worker-friendly senza quel guard (es. funzioni pure esportate separatamente o wrapper in `worker/lib/`)
+  - **Graceful shutdown**: handler `SIGTERM`/`SIGINT` che blocca il loop, disconnette Prisma e termina il processo pulitamente
+  - **Configurazione**: `WORKER_POLL_INTERVAL_MS` letta dall'environment (default 5000 ms)
+
+  ---
+
+  ## Strategia di Test
+
+  Test unitari con Jest + ts-jest (già configurati nel progetto) per la logica della state machine, con `PrismaClient` mockato. Nessun test e2e richiesto — non c'è UI coinvolta.
+
+  - **Test 1** — nessun job in coda: `pollOnce()` non effettua aggiornamenti al DB
+  - **Test 2** — job PENDING trovato: transizioni corrette `PENDING → RUNNING → DONE`, log strutturati emessi
+  - **Test 3** — `handleJob` lancia un'eccezione: job transiziona a `FAILED` con errore registrato nel campo `result`
+
+  ---
+
+  _Piano generato via ARchetipo Planning — 2026-06-19_
+tasks:
+  - id: TASK-01
+    title: Aggiungere tsx alle devDependencies e script worker
+    description: 'Installare tsx come devDependency (`npm install -D tsx`) per eseguire TypeScript standalone senza build step. Aggiungere lo script `"worker": "tsx worker/index.ts"` a package.json.'
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Creare worker/index.ts con loop di polling
+    description: 'Implementare il worker: istanza diretta di PrismaClient, funzione `pollOnce()` che legge job PENDING e chiama `processJob()`, funzione `processJob()` con transizioni RUNNING→DONE/FAILED, stub `handleJob()` placeholder, main loop via setInterval, graceful shutdown su SIGTERM/SIGINT, log strutturati su console.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Unit test per pollOnce e processJob
+    description: 'Scrivere test Jest in `worker/index.test.ts` con mock di PrismaClient. Coprire: nessun job PENDING (nessuna scrittura DB), job trovato con transizioni PENDING→RUNNING→DONE, handleJob che lancia eccezione con transizione a FAILED e risultato d''errore.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-03
