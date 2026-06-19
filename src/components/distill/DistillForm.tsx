@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { User } from "@prisma/client";
 
 const TONES = {
@@ -65,11 +66,11 @@ interface DistillFormProps {
 }
 
 export function DistillForm({ user }: DistillFormProps) {
+  const router = useRouter();
   const [topic, setTopic] = useState("");
   const [tone, setTone] = useState<ToneKey>("neutro");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
 
   const charCount = topic.length;
   const charClass =
@@ -83,7 +84,6 @@ export function DistillForm({ user }: DistillFormProps) {
 
     setIsSubmitting(true);
     setSubmitError(null);
-    setSubmitted(false);
 
     try {
       const response = await fetch("/api/distill", {
@@ -93,14 +93,19 @@ export function DistillForm({ user }: DistillFormProps) {
       });
 
       if (response.ok) {
-        setSubmitted(true);
-        setTopic("");
+        const data = await response.json();
+        if (!data.jobId) {
+          setSubmitError("Si è verificato un errore. Riprova più tardi.");
+          setIsSubmitting(false);
+          return;
+        }
+        router.push("/distill/" + data.jobId);
       } else {
         setSubmitError("Si è verificato un errore. Riprova più tardi.");
+        setIsSubmitting(false);
       }
     } catch {
       setSubmitError("Si è verificato un errore. Riprova più tardi.");
-    } finally {
       setIsSubmitting(false);
     }
   }
@@ -252,35 +257,6 @@ export function DistillForm({ user }: DistillFormProps) {
               <div className="np-submit-area">
                 {submitError && (
                   <p className="np-error-msg">{submitError}</p>
-                )}
-                {submitted && (
-                  <div className="np-submit-confirm">
-                    <p
-                      style={{
-                        fontFamily:
-                          "var(--font-deck, 'Arial Narrow', sans-serif)",
-                        fontSize: ".72rem",
-                        textTransform: "uppercase",
-                        letterSpacing: ".12em",
-                        color: "#006622",
-                        margin: 0,
-                      }}
-                    >
-                      ★ Richiesta inviata con successo ★
-                    </p>
-                    <p
-                      style={{
-                        fontFamily: "var(--font-body, Georgia, serif)",
-                        fontSize: ".72rem",
-                        fontStyle: "italic",
-                        color: "var(--ink-mid)",
-                        marginTop: ".3rem",
-                        marginBottom: 0,
-                      }}
-                    >
-                      Riceverai il distillato per email appena pronto.
-                    </p>
-                  </div>
                 )}
                 <button
                   type="submit"

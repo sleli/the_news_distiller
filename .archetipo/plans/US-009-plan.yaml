@@ -1,0 +1,93 @@
+schema: archetipo/plan/v2
+spec_code: US-009
+body: |-
+  # US-009: Mostrare la conferma in-app dopo l'invio della richiesta — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-19
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-002 — Richiesta Distillato
+  **Priorità:** HIGH | **Punti:** 2
+
+  **User Story**
+  In qualità di Marco, utente autenticato,
+  voglio vedere una conferma immediata dopo aver inviato la richiesta,
+  in modo da sapere che il distillato è in elaborazione e che riceverò una email al completamento.
+
+  **Criteri di Accettazione**
+  - Dopo il submit del form, l'utente è reindirizzato a `/distill/[id]`
+  - Il job appena creato mostra chiaramente lo status "In coda"
+  - È presente un messaggio che informa l'utente che riceverà una email al completamento
+  - L'utente può navigare liberamente dopo la conferma (non è bloccato in attesa)
+
+  ---
+
+  ## Soluzione Tecnica
+
+  La soluzione si articola su tre interventi coordinati: creazione dell'API route `GET /api/distill/[id]`, creazione della pagina dettaglio `src/app/distill/[id]/page.tsx`, e modifica di `DistillForm.tsx` per reindirizzare dopo il submit. Nessuna migrazione DB è necessaria — il modello `DistillJob` con i campi `id`, `topic`, `tone`, `status`, `createdAt` esiste già in `prisma/schema.prisma`.
+
+  - **`GET /api/distill/[id]/route.ts`** — Route handler che chiama `getCurrentUser()` (401 se null), poi `prisma.distillJob.findUnique({ where: { id } })` (404 se non trovato), verifica che `job.userId === user.id` (404 se non corrisponde), restituisce `{ id, topic, tone, status, createdAt }`.
+  - **`src/app/distill/[id]/page.tsx`** — Server component che legge il job direttamente via Prisma, verifica ownership (redirect a `/distill` se non trovato o non di proprietà), e renderizza la pagina con le classi `np-*` esistenti: topic come headline, badge status ("In coda" per PENDING, "In elaborazione" per PROCESSING, "Completato" per DONE, "Errore" per FAILED), e il messaggio "Riceverai una email quando il distillato è pronto". Include link a "Nuova Richiesta" e la navbar standard.
+  - **`DistillForm.tsx`** — Aggiungere `useRouter` da `next/navigation`. Nell'handler `handleSubmit`, dopo `response.ok`: leggere `jobId` dalla risposta JSON e chiamare `router.push('/distill/' + jobId)`. Rimuovere lo stato `submitted`, il setter `setSubmitted`, e il blocco JSX di conferma inline (dead code). Rimuovere anche `setTopic('')` ridondante.
+  - **Sicurezza:** La pagina `/distill/[id]` è già protetta dal middleware esistente (`startsWith('/distill')`). L'ownership check nel server component previene l'accesso a job altrui.
+
+  ---
+
+  ## Strategia di Test
+
+  Playwright è l'unico framework di testing installato nel progetto. La strategia copre il flusso E2E completo: dal submit del form alla pagina di conferma con lo status corretto.
+
+  - **E2E test del flusso principale** (`tests/e2e/distill-confirm.spec.ts`): sign-in con utente di test, naviga `/distill`, inserisce topic valido, click submit, intercetta risposta `POST /api/distill` via `page.waitForResponse`, verifica redirect a `/distill/[jobId]`, verifica presenza del testo "In coda" e del messaggio email.
+  - **Test isolamento ownership** (via `request` fixture): richiesta `GET /api/distill/[id]` con sessione di un altro utente → verifica risposta 404.
+  - **Video recording** abilitato per ogni scenario con `test.use({ video: 'on' })`; video salvati in `docs/test-results/US-009/`.
+
+  ### Test E2E — Simulazione Utente
+
+  **Framework:** Playwright
+  **Video recording:** Abilitato per ogni scenario (`test.use({ video: 'on' })`)
+  **Output video:** `docs/test-results/US-009/`
+
+  | Scenario | Descrizione del flusso utente |
+  |---|---|
+  | Conferma post-submit | Sign-in via /auth/signin, naviga /distill, inserisce topic valido, click submit, intercetta risposta POST /api/distill, verifica redirect a /distill/[jobId], verifica "In coda" e messaggio notifica email |
+  | Accesso a job inesistente | Naviga direttamente a /distill/id-inesistente, verifica redirect a /distill |
+  | Ownership check API | GET /api/distill/[id] con sessione utente diverso via request fixture, verifica risposta 404 |
+
+  ---
+
+  _Piano generato tramite ARchetipo Planning — 2026-06-19_
+tasks:
+  - id: TASK-01
+    title: Creare src/app/api/distill/[id]/route.ts con handler GET
+    description: 'Route handler Next.js per GET /api/distill/[id]: (1) chiamare getCurrentUser() — se null rispondere 401, (2) trovare il job via prisma.distillJob.findUnique — se null o userId !== user.id rispondere 404, (3) rispondere 200 con { id, topic, tone, status, createdAt }.'
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Creare src/app/distill/[id]/page.tsx — pagina di conferma job
+    description: 'Server component che legge il job direttamente via Prisma (getCurrentUser + findUnique + ownership check, redirect ''/distill'' se non trovato). Renderizza con classi np-*: topic come headline, badge status mappato (PENDING=''In coda'', PROCESSING=''In elaborazione'', DONE=''Completato'', FAILED=''Errore''), messaggio ''Riceverai una email quando il distillato e pronto'', link a Nuova Richiesta.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Modificare DistillForm.tsx — redirect a /distill/[id] dopo submit
+    description: 'Aggiungere useRouter da next/navigation. Nell''handler handleSubmit, dopo response.ok: leggere jobId dalla risposta JSON e chiamare router.push(''/distill/'' + jobId). Rimuovere lo stato submitted, setSubmitted, setTopic('''') ridondante, e il blocco JSX di conferma inline.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-03
+  - id: TASK-04
+    title: Playwright E2E test — flusso submit -> pagina conferma
+    description: 'Creare tests/e2e/distill-confirm.spec.ts. Abilitare video con test.use({ video: ''on'' }), output in docs/test-results/US-009/. Scenari: (1) flusso completo sign-in -> /distill -> submit -> verifica redirect a /distill/[id] -> verifica ''In coda'' e messaggio email; (2) navigazione a /distill/id-inesistente -> verifica redirect; (3) GET /api/distill/[id] con sessione utente diverso via request fixture -> verifica 404.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-04
