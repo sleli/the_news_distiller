@@ -1,0 +1,29 @@
+schema: archetipo/spec/v2
+code: US-021
+title: Notifica browser al completamento di un distillato
+epic:
+  code: EP-004
+  title: Notifica e Consultazione
+priority: HIGH
+points: 3
+status: REVIEW
+body: |-
+  #### US-021: Notifica browser al completamento di un distillato
+
+  **Epic:** EP-004 | **Priorità:** HIGH | **Punti:** 3 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di utente autenticato,
+  voglio ricevere una notifica del browser quando un distillato che ho richiesto diventa DONE o FAILED,
+  in modo da sapere che posso consultarne il risultato senza tenere d'occhio la pagina.
+
+  **Dimostrabile**
+  Dopo l'implementazione, l'utente avvia un distillato, minimizza la finestra, e al completamento (DONE o FAILED) compare una notifica di sistema del browser con titolo e messaggio appropriati — senza alcun refresh manuale.
+
+  **Criteri di Accettazione**
+  - [ ] Al primo accesso alla pagina Archivio (o alla distill page), l'app richiede il permesso `Notification` al browser se non ancora concesso
+  - [ ] Se il permesso è negato, la feature si disabilita silenziosamente (nessun errore visibile)
+  - [ ] Il polling esistente sull'Archivio rileva la transizione di stato verso `DONE` o `FAILED` e attiva la notifica
+  - [ ] La notifica mostra il topic del distillato nel titolo e un messaggio differenziato per DONE ("Distillato pronto") e FAILED ("Elaborazione fallita")
+  - [ ] Cliccando la notifica si apre/porta in primo piano la tab e naviga alla pagina di dettaglio del job

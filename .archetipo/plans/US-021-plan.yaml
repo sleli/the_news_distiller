@@ -1,0 +1,42 @@
+schema: archetipo/plan/v2
+spec_code: US-021
+body: "# US-021: Notifica browser al completamento di un distillato — Piano di Implementazione\n\n**Generato da:** ARchetipo Planning Team  \n**Data:** 2026-06-19\n\n---\n\n## Spec\n\n**Epic:** EP-004 — Notifica e Consultazione  \n**Priorità:** HIGH | **Punti:** 3\n\n**User Story**  \nIn qualità di utente autenticato, voglio ricevere una notifica del browser quando un distillato che ho richiesto diventa DONE o FAILED, in modo da sapere che posso consultarne il risultato senza tenere d'occhio la pagina.\n\n**Criteri di Accettazione**\n- Al primo accesso alla pagina Archivio (o alla distill page), l'app richiede il permesso `Notification` al browser se non ancora concesso\n- Se il permesso è negato, la feature si disabilita silenziosamente (nessun errore visibile)\n- Il polling esistente sull'Archivio rileva la transizione di stato verso `DONE` o `FAILED` e attiva la notifica\n- La notifica mostra il topic del distillato nel titolo e un messaggio differenziato per DONE (\"Distillato pronto\") e FAILED (\"Elaborazione fallita\")\n- Cliccando la notifica si apre/porta in primo piano la tab e naviga alla pagina di dettaglio del job\n\n---\n\n## Soluzione Tecnica\n\nLa funzionalità è interamente client-side e si innesta sul polling già esistente in `ArchiveGrid.tsx` senza modifiche al backend.\n\n- **Hook `useBrowserNotification`** (`src/hooks/useBrowserNotification.ts`): gestisce il ciclo di vita dei permessi (`Notification.permission`). Al mount controlla lo stato corrente: se `default` chiama `requestPermission()` in modo asincrono; se `denied` rimane silenzioso. Espone un callback stabile `notify(topic, status, jobId)` che istanzia `new Notification(topic, { body, tag })` con `onclick` che chiama `window.focus()` e naviga a `/distill/{jobId}`. Tutto il codice è guardato da `typeof Notification === 'undefined'` per compatibilità SSR.\n- **Integrazione in `ArchiveGrid.tsx`**: aggiunta di un `useRef<Map<string, string>>` (`prevStatusRef`) inizializzato da `initialJobs` prima del primo render — così i job già DONE/FAILED al caricamento non producono notifiche. Dentro `fetchJobs` (già `useCallback`), prima di chiamare `setJobs(data)`, si confronta ogni job in arrivo con lo snapshot in `prevStatusRef`; se la transizione è verso `DONE` o `FAILED` si chiama `notify()`; poi si aggiorna il ref. `notify` viene aggiunto alle dipendenze del `useCallback`.\n- **Testo delle notifiche**: DONE → body `\"Distillato pronto\"`, FAILED → body `\"Elaborazione fallita\"`; `tag: jobId` evita notifiche duplicate per lo stesso job.\n\n---\n\n## Strategia di Test\n\nTest unitari per la logica dell'hook e per la detection delle transizioni; test e2e Playwright per il flusso utente completo con video recording.\n\n- **Unit test `useBrowserNotification`** (Jest + @testing-library/react): mock di `window.Notification` e della sua proprietà `permission`; verifica che `requestPermission()` venga chiamato al mount quando il permesso è `default`; verifica che `notify()` istanzi `Notification` con titolo e body corretti per DONE e FAILED; verifica silenzio assoluto quando il permesso è `denied`.\n- **Unit test `ArchiveGrid` — detection transizioni** (Jest + @testing-library/react): mock di `fetch` per restituire prima uno job RUNNING poi DONE; verifica che la notifica venga emessa solo alla transizione; verifica che job già DONE in `initialJobs` non producano notifiche al mount.\n- **E2E** (Playwright): `context.grantPermissions(['notifications'])` per bypassare il dialog OS; mock di `window.Notification` via `page.addInitScript` per catturare le chiamate; route intercept su `/api/distill` per simulare la sequenza RUNNING→DONE; asserzione che il costruttore `Notification` sia stato chiamato con il topic corretto e body `\"Distillato pronto\"`; video recording abilitato per il test.\n\n### Test E2E — Simulazione Utente\n\n**Framework:** Playwright (`@playwright/test ^1.50.0`, già configurato in `playwright.config.ts`)  \n**Video recording:** Abilitato (`test.use({ video: 'on' })`) — output in `docs/test-results/US-021/`\n\n| Scenario | Descrizione del flusso |\n|---|---|\n| Notifica DONE alla transizione | Utente autenticato apre `/archivio` con job RUNNING → il poll successivo restituisce DONE → la notifica compare con titolo del topic e body \"Distillato pronto\" |\n| Silenzio se permesso negato | Utente carica `/archivio`, il browser ha permesso `denied` → nessun errore visibile, nessuna notifica |\n| Click sulla notifica naviga al dettaglio | Utente riceve notifica DONE → clicca → la tab porta in primo piano e naviga a `/distill/{id}` |\n\n---\n\n_Piano generato via ARchetipo Planning — 2026-06-19_"
+tasks:
+  - id: TASK-01
+    title: Crea hook useBrowserNotification
+    description: 'Implementa `src/hooks/useBrowserNotification.ts`. Al mount controlla `Notification.permission`: se `default` chiama `requestPermission()`; se `denied` rimane silenzioso. Espone callback stabile `notify(topic, status, jobId)` che istanzia `new Notification(topic, { body, tag: jobId })` con onclick verso `/distill/{jobId}`. Guardia SSR con `typeof Notification === ''undefined''`.'
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Integra notifiche in ArchiveGrid
+    description: 'In `src/components/distill/ArchiveGrid.tsx`: aggiunge `prevStatusRef = useRef<Map<string,string>>()` inizializzato da `initialJobs`. Importa e chiama `useBrowserNotification`. Dentro `fetchJobs` (useCallback), confronta stati in arrivo con il ref prima di `setJobs`, chiama `notify()` per ogni job transitato a DONE o FAILED, aggiorna il ref. Aggiunge `notify` alle dipendenze del useCallback.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Unit test useBrowserNotification
+    description: 'In `tests/unit/useBrowserNotification.test.ts`: mock di `window.Notification` (costruttore + proprietà `permission`). Verifica: `requestPermission()` chiamato al mount quando permission è `default`; `notify()` istanzia Notification con title=topic, body=''Distillato pronto'' per DONE e ''Elaborazione fallita'' per FAILED; nessuna istanza creata quando permission è `denied`.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-03
+  - id: TASK-04
+    title: Unit test detection transizioni in ArchiveGrid
+    description: 'In `tests/unit/ArchiveGrid.notification.test.tsx`: mock di `fetch` per restituire sequenza RUNNING→DONE; mock di `window.Notification`. Verifica che la notifica venga emessa alla transizione e non per job già DONE in `initialJobs` al mount.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-04
+  - id: TASK-05
+    title: E2E test flusso notifica browser
+    description: 'In `tests/e2e/browser-notification.spec.ts`: `context.grantPermissions([''notifications''])`; inietta mock di `window.Notification` via `page.addInitScript`; intercept su `/api/distill` per simulare RUNNING→DONE; verifica che il costruttore `Notification` sia chiamato con topic e body ''Distillato pronto''. Usa `test.use({ video: ''on'' })` — output in `docs/test-results/US-021/`.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-05

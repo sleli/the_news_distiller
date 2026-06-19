@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ArchiveCard, type ArchiveJobData } from "./ArchiveCard";
+import { useBrowserNotification } from "@/hooks/useBrowserNotification";
 
 type FilterKey = "all" | "DONE" | "RUNNING" | "PENDING" | "FAILED";
 
@@ -20,6 +21,10 @@ interface ArchiveGridProps {
 export function ArchiveGrid({ initialJobs }: ArchiveGridProps) {
   const [jobs, setJobs] = useState<ArchiveJobData[]>(initialJobs);
   const [filter, setFilter] = useState<FilterKey>("all");
+  const prevStatusRef = useRef<Map<string, string>>(
+    new Map(initialJobs.map((j) => [j.id, j.status]))
+  );
+  const { notify } = useBrowserNotification();
 
   const hasLive = jobs.some((j) => j.status === "RUNNING" || j.status === "PENDING");
 
@@ -28,11 +33,18 @@ export function ArchiveGrid({ initialJobs }: ArchiveGridProps) {
       const res = await fetch("/api/distill");
       if (!res.ok) return;
       const data: ArchiveJobData[] = await res.json();
+      for (const job of data) {
+        const prev = prevStatusRef.current.get(job.id);
+        if (prev !== undefined && prev !== job.status && (job.status === "DONE" || job.status === "FAILED")) {
+          notify(job.topic, job.status, job.id);
+        }
+      }
+      prevStatusRef.current = new Map(data.map((j) => [j.id, j.status]));
       setJobs(data);
     } catch {
       // silently ignore — next tick will retry
     }
-  }, []);
+  }, [notify]);
 
   useEffect(() => {
     if (!hasLive) return;
