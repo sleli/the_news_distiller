@@ -1,0 +1,29 @@
+schema: archetipo/spec/v2
+code: US-022
+title: Eliminare un distillato dallo storico tramite bottone cestino vintage
+epic:
+  code: EP-004
+  title: Notifica e Consultazione
+priority: MEDIUM
+points: 2
+status: TODO
+body: |-
+  #### US-022: Eliminare un distillato dallo storico tramite bottone cestino vintage
+
+  **Epic:** EP-004 | **Priorità:** MEDIUM | **Punti:** 2 | **Stato:** TODO
+  **Bloccato da:** US-015
+
+  **User Story**
+  In qualità di Marco, utente autenticato,
+  voglio eliminare un distillato dalla mia lista storico cliccando un'icona cestino in stile vintage accanto a ogni riga,
+  in modo da tenere l'archivio pulito rimuovendo le richieste che non mi interessano più.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, Marco apre la pagina storico, vede l'icona cestino vintage accanto a ciascun distillato, clicca su quella di un job, conferma l'eliminazione in un dialog e il job scompare dalla lista senza ricaricare la pagina.
+
+  **Criteri di Accettazione**
+  - [ ] `DELETE /api/distill/[id]` elimina il job (e i `DistillSource` associati) solo se appartiene all'utente autenticato; restituisce 404 se il job non esiste o appartiene ad altro utente; 401 senza sessione
+  - [ ] Ogni riga della lista storico mostra un bottone con icona cestino in stile vintage (SVG a tratto grezzo o illustrativo, coerente con l'estetica grafica dell'app)
+  - [ ] Prima dell'eliminazione appare un dialog di conferma ("Sei sicuro? Questa azione è irreversibile")
+  - [ ] Dopo la conferma la riga viene rimossa dalla lista in modo ottimistico (senza full reload)
+  - [ ] Se la chiamata API fallisce, la riga viene ripristinata e viene mostrato un messaggio di errore

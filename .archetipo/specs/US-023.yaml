@@ -1,0 +1,30 @@
+schema: archetipo/spec/v2
+code: US-023
+title: Bottone "Argomento del giorno" che pre-compila il topic tramite Tavily
+epic:
+  code: EP-002
+  title: Richiesta Distillato
+priority: MEDIUM
+points: 3
+status: TODO
+body: |-
+  #### US-023: Bottone "Argomento del giorno" che pre-compila il topic tramite Tavily
+
+  **Epic:** EP-002 | **Priorità:** MEDIUM | **Punti:** 3 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di utente autenticato sulla pagina di richiesta distillato,
+  voglio premere un bottone "Argomento del giorno" per pre-compilare automaticamente il campo topic con il tema più discusso del momento,
+  in modo da trovare ispirazione senza dover pensare a un argomento di partenza.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, l'utente può aprire la pagina di richiesta, cliccare "Argomento del giorno", vedere uno spinner mentre Tavily risponde, e trovare il campo topic pre-compilato con il trending topic del momento. Se il campo era già valorizzato, viene mostrata una dialog di conferma prima di sovrascrivere.
+
+  **Criteri di Accettazione**
+  - [ ] Il bottone "Argomento del giorno" è visibile accanto al campo "Argomento da distillare"
+  - [ ] Al click, viene effettuata una chiamata a una nuova API route `GET /api/distill/trending` che usa Tavily per recuperare il topic più caldo del momento
+  - [ ] Durante la chiamata API, il bottone mostra uno spinner e risulta disabilitato
+  - [ ] Se la chiamata ha successo, il campo topic viene pre-compilato con il topic restituito
+  - [ ] Se il campo topic è già valorizzato al momento del click, viene mostrata una dialog di conferma; l'utente può scegliere "Sovrascrivi" o "Annulla"
+  - [ ] Se la chiamata API fallisce, viene mostrato un messaggio di errore inline non bloccante (es. toast)

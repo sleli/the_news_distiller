@@ -1,0 +1,28 @@
+schema: archetipo/spec/v2
+code: US-024
+title: Mostrare il messaggio di errore specifico nella pagina di dettaglio per i job FAILED
+epic:
+  code: EP-003
+  title: Elaborazione Asincrona
+priority: LOW
+points: 1
+status: TODO
+body: |-
+  #### US-024: Mostrare il messaggio di errore specifico nella pagina di dettaglio per i job FAILED
+
+  **Epic:** EP-003 | **Priorità:** LOW | **Punti:** 1 | **Stato:** TODO
+  **Bloccato da:** US-012
+
+  **User Story**
+  In qualità di utente,
+  voglio leggere un messaggio che spieghi perché la mia distillazione è fallita,
+  in modo da capire cosa è andato storto e decidere come procedere (riprovare, modificare il topic, ecc.).
+
+  **Dimostrabile**
+  Dopo l'implementazione, un utente con un job FAILED apre la pagina di dettaglio e vede il messaggio d'errore specifico (es. "Nessun articolo trovato per il topic \"X\"" oppure "Job bloccato: timeout superato") nel box "Note dalla Redazione", sotto l'etichetta "Dettaglio errore".
+
+  **Criteri di Accettazione**
+  - [ ] Nella pagina `/distill/[id]`, se `job.status === 'FAILED'` e `job.result` contiene un campo `error` non vuoto, il messaggio viene mostrato nel box laterale "Note dalla Redazione"
+  - [ ] Il messaggio appare sotto l'etichetta "Dettaglio errore" in stile coerente con il design newspaper esistente
+  - [ ] Se `job.result` è null oppure non contiene il campo `error`, il box mostra il testo generico già esistente ("Il Distillatore non è riuscito a completare l'analisi")
+  - [ ] Il campo `result` del job è incluso nella query Prisma della pagina di dettaglio (già presente — nessuna modifica API necessaria)
