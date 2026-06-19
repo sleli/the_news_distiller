@@ -15,6 +15,7 @@ export async function GET(
 
   const job = await prisma.distillJob.findUnique({
     where: { id },
+    include: { sources: true },
   });
 
   if (!job || job.userId !== user.id) {
@@ -27,5 +28,7 @@ export async function GET(
     tone: job.tone,
     status: job.status,
     createdAt: job.createdAt,
+    result: job.result ?? null,
+    sources: job.sources,
   });
 }

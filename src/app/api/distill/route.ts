@@ -3,6 +3,21 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isValidTone } from "@/lib/tones";
 
+export async function GET() {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Non autenticato." }, { status: 401 });
+  }
+
+  const jobs = await prisma.distillJob.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, topic: true, tone: true, status: true, createdAt: true },
+  });
+
+  return NextResponse.json(jobs);
+}
+
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) {

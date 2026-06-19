@@ -1,0 +1,69 @@
+schema: archetipo/plan/v2
+spec_code: US-014
+body: |-
+  # US-014: Implementare le API GET per la lista e il dettaglio dei job — Piano di implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-19
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-004 — Notifica e Consultazione
+  **Priorità:** HIGH | **Punti:** 2
+
+  **User Story**
+  In qualità di Marco, utente autenticato, voglio poter recuperare la lista dei miei distillati e il dettaglio di un singolo distillato tramite API, in modo da visualizzarli nella web app.
+
+  **Criteri di Accettazione**
+  - [ ] `GET /api/distill` restituisce i job dell'utente autenticato ordinati per `createdAt` DESC, con campi: `id`, `topic`, `tone`, `status`, `createdAt`
+  - [ ] `GET /api/distill/[id]` restituisce il job completo incluso `result` (se DONE) per l'utente proprietario
+  - [ ] Richiedere un job di un altro utente restituisce 404 (non 403, per evitare enumerazione)
+  - [ ] Richieste senza sessione valida restituiscono 401
+
+  ---
+
+  ## Soluzione Tecnica
+
+  Entrambe le route esistono già nel codebase ma sono parzialmente incomplete: `/api/distill/route.ts` espone solo `POST` (manca il `GET` per la lista), e `/api/distill/[id]/route.ts` espone `GET` ma restituisce una risposta incompleta (mancano `result` e `sources`).
+
+  - Aggiungere l'export `GET` al file `src/app/api/distill/route.ts` usando `prisma.distillJob.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, select: { id, topic, tone, status, createdAt } })`. L'handler segue il pattern di autenticazione già adottato nel `POST` dello stesso file.
+  - Aggiornare l'handler `GET` in `src/app/api/distill/[id]/route.ts`: aggiungere `include: { sources: true }` alla query Prisma e includere `result` (nullable, as-is dal campo `Json?`) e `sources` nella risposta JSON.
+  - Il pattern di autenticazione (`getCurrentUser()` + 401) e la protezione ownership con 404 (non 403) sono già implementati correttamente nell'handler esistente — nessuna modifica necessaria su quel fronte.
+
+  ---
+
+  ## Strategia di Test
+
+  Spec puramente API senza UI — test di integrazione Jest seguendo il pattern di `tests/integration/settings-api.test.ts` (DB SQLite isolato per test, mock di `getCurrentUser`, import diretto degli handler).
+
+  - **GET /api/distill**: 401 senza sessione, lista vuota per nuovo utente, lista ordinata per `createdAt` DESC, isolamento cross-utente (utente A non vede i job di utente B)
+  - **GET /api/distill/[id]**: 401 senza sessione, 404 per job inesistente, 404 per job appartenente ad altro utente (non 403), risposta completa con `result` e `sources` per un job DONE, risposta senza `result` per job PENDING
+  - Nessun test e2e Playwright necessario per questa spec: pura API già coperta dal pattern Jest integration
+
+  ---
+
+  _Piano generato via ARchetipo Planning — 2026-06-19_
+tasks:
+  - id: TASK-01
+    title: Aggiungere handler GET a /api/distill/route.ts per la lista dei job
+    description: Aggiungere l'export async function GET() al file esistente src/app/api/distill/route.ts. Usare prisma.distillJob.findMany con where userId, orderBy createdAt desc, select dei campi richiesti (id, topic, tone, status, createdAt). Stessa guard 401 del POST già presente.
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Aggiornare handler GET in /api/distill/[id]/route.ts per includere result e sources
+    description: 'Modificare la query Prisma da findUnique a findUnique con include: { sources: true } e aggiornare la risposta JSON per includere result (nullable) e sources. Il check di ownership (404 se job non appartiene all''utente) è già corretto.'
+    type: Impl
+    status: DONE
+    ref: TASK-02
+  - id: TASK-03
+    title: Test di integrazione Jest per GET /api/distill e GET /api/distill/[id]
+    description: 'Creare tests/integration/distill-get-api.test.ts seguendo il pattern di settings-api.test.ts. Coprire: 401 senza sessione, lista vuota, ordinamento DESC, isolamento cross-utente, 404 per job non trovato, 404 per job di altro utente, risposta completa con result e sources per job DONE.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-01
+      - TASK-02
+    ref: TASK-03

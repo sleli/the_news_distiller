@@ -6,7 +6,7 @@ epic:
   title: Notifica e Consultazione
 priority: HIGH
 points: 2
-status: TODO
+status: REVIEW
 scope: MVP
 body: |-
   #### US-014: Implementare le API GET per la lista e il dettaglio dei job
