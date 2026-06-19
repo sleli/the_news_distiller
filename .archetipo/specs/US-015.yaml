@@ -6,7 +6,7 @@ epic:
   title: Notifica e Consultazione
 priority: HIGH
 points: 3
-status: TODO
+status: REVIEW
 blocked_by:
   - US-014
 scope: MVP

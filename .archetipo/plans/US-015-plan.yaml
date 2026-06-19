@@ -1,0 +1,42 @@
+schema: archetipo/plan/v2
+spec_code: US-015
+body: "# US-015: Creare la pagina dello storico distillati con stato aggiornato — Piano di Implementazione\n\n**Generato da:** ARchetipo Planning Team  \n**Data:** 2026-06-19\n\n---\n\n## Spec\n\n**Epic:** EP-004 — Notifica e Consultazione  \n**Priorità:** HIGH | **Punti:** 3\n\n**User Story**  \nIn qualità di Marco, utente autenticato, voglio vedere una lista di tutti i miei distillati con il loro stato corrente, in modo da tracciare le mie richieste e sapere quali sono pronti da leggere.\n\n**Criteri di Accettazione**\n- La pagina mostra la lista dei distillati dell'utente con: topic, stato, data richiesta, tono\n- Lo stato di ogni job corrisponde a quello nel database (aggiornato al refresh della pagina)\n- I job con status `DONE` mostrano un link cliccabile alla pagina di dettaglio `/distill/[id]`\n- I job con status `FAILED` mostrano un indicatore di errore visivamente distinto\n\n---\n\n## Soluzione Tecnica\n\nLa pagina `/distill` è già un server component che renderizza `DistillForm`. La soluzione estende questo pattern: `distill/page.tsx` fetcha i job dell'utente direttamente via Prisma (evitando una chiamata API lato client), li passa come prop a `DistillForm`, e il componente sostituisce il placeholder hardcodato \"Nessuna richiesta recente\" con la lista reale.\n\n- **Fetch server-side via Prisma**: `prisma.distillJob.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, select: { id, topic, tone, status, createdAt } })` — la data viene serializzata come stringa ISO prima di passarla al client component.\n- **Props serializzabili**: `DistillForm` riceve `jobs: Array<{ id, topic, tone, status, createdAt: string }>` — nessun tipo `Date` nativo che causerebbe errori di serializzazione Next.js.\n- **Rendering condizionale per stato**: badge `DONE` con link ad `/distill/[id]`, badge `FAILED` con styling rosso distinto, badge `PENDING`/`PROCESSING` con styling neutro. Le etichette italiane (`In coda`, `In elaborazione`, `Completato`, `Errore`) sono già definite in `distill/[id]/page.tsx` — da estrarre in un modulo condiviso.\n- **Testabilità**: aggiungere `data-testid=\"history-list\"` sul contenitore lista, `data-testid=\"history-item\"` su ogni riga, `data-testid=\"status-badge\"` sul badge di stato.\n\n---\n\n## Strategia di Test\n\nDue livelli di test: e2e Playwright per il flusso utente visibile (prioritario, spec UI), test di componente Jest per la logica di rendering.\n\n- **E2E Playwright**: simulazione del flusso completo — login, navigazione a `/distill`, verifica lista con job reali. Video recording abilitato per ogni scenario con output in `docs/test-results/US-015/`.\n- **Test di componente**: mock dei job in `DistillForm` per verificare rendering condizionale (lista vuota, job DONE con link, job FAILED con badge rosso).\n- Nessun test di integrazione API necessario: `GET /api/distill` è già coperto da US-014 (TASK-03).\n\n### Test E2E — Simulazione Utente\n\n**Framework:** Playwright (già configurato, `tests/e2e/`, `@playwright/test`)\n**Video recording:** Abilitato per tutti gli scenari  \n**Output video:** `docs/test-results/US-015/`\n\n| Scenario | Descrizione del flusso |\n|---|---|\n| Storico vuoto | Utente autenticato senza job visita `/distill` → vede messaggio \"Nessuna richiesta recente\" |\n| Job DONE con link | Utente con job completato vede il topic, badge \"Completato\", e un link cliccabile a `/distill/[id]` |\n| Job FAILED con indicatore errore | Utente con job fallito vede badge \"Errore\" con styling rosso visivamente distinto |\n\n---\n\n_Piano generato via ARchetipo Planning — 2026-06-19_"
+tasks:
+  - id: TASK-01
+    title: Estrarre STATUS_LABELS in lib/distill-status.ts e aggiornare distill/[id]/page.tsx
+    description: 'Creare src/lib/distill-status.ts esportando la mappa STATUS_LABELS e una funzione getStatusLabel(status: string). Aggiornare distill/[id]/page.tsx per importare da questo modulo invece di definire la mappa inline. Questo evita duplicazione con il prossimo task.'
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Aggiornare distill/page.tsx per fetchare i job e passarli a DistillForm
+    description: 'Aggiungere la query Prisma in src/app/distill/page.tsx: findMany con where userId, orderBy createdAt desc, select id/topic/tone/status/createdAt. Convertire createdAt a stringa ISO prima di passarla come prop. Aggiornare la firma del componente DistillForm per accettare la nuova prop jobs.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Aggiornare DistillForm per renderizzare la lista reale dei job nel sidebar
+    description: 'Aggiornare src/components/distill/DistillForm.tsx: aggiungere prop jobs con tipo JobSummary[], sostituire il blocco ''Nessuna richiesta recente'' con rendering condizionale della lista. Ogni item mostra topic, badge stato (da STATUS_LABELS), data formattata, tono. Job DONE ha link a /distill/[id], job FAILED ha badge con colore rosso. Aggiungere data-testid=''history-list'', ''history-item'', ''status-badge''.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-03
+  - id: TASK-04
+    title: Test di componente Jest per DistillForm con lista job
+    description: 'Creare tests/unit/components/DistillForm.test.tsx. Coprire: rendering con lista vuota (messaggio placeholder), rendering con job DONE (link presente), rendering con job FAILED (badge con classe errore), rendering con job PENDING/PROCESSING (nessun link). Usare @testing-library/react con mock della prop jobs.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-04
+  - id: TASK-05
+    title: Test E2E Playwright per lo storico distillati su /distill
+    description: 'Creare tests/e2e/distill-history.spec.ts. Configurare video recording con output in docs/test-results/US-015/. Scenari: (1) utente senza job vede stato vuoto; (2) utente con job DONE vede link cliccabile a /distill/[id]; (3) utente con job FAILED vede badge rosso. Usare fixture di setup DB o intercept API per controllare lo stato dei job nei test.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-05

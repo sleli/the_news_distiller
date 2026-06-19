@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getStatusLabel } from "@/lib/distill-status";
 
 function italianDate() {
   const now = new Date();
@@ -8,13 +9,6 @@ function italianDate() {
   const months = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
   return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: "In coda",
-  PROCESSING: "In elaborazione",
-  DONE: "Completato",
-  FAILED: "Errore",
-};
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -30,7 +24,7 @@ export default async function DistillJobPage({ params }: Props) {
   if (!job || job.userId !== user.id) redirect("/distill");
 
   const displayName = user.name ?? user.email;
-  const statusLabel = STATUS_LABELS[job.status] ?? job.status;
+  const statusLabel = getStatusLabel(job.status);
 
   return (
     <div className="np-paper">

@@ -3,6 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@prisma/client";
+import { getStatusLabel } from "@/lib/distill-status";
+
+export interface JobSummary {
+  id: string;
+  topic: string;
+  tone: string;
+  status: string;
+  createdAt: string;
+}
 
 const TONES = {
   neutro: {
@@ -63,9 +72,10 @@ function italianDate() {
 
 interface DistillFormProps {
   user: User;
+  jobs?: JobSummary[];
 }
 
-export function DistillForm({ user }: DistillFormProps) {
+export function DistillForm({ user, jobs = [] }: DistillFormProps) {
   const router = useRouter();
   const [topic, setTopic] = useState("");
   const [tone, setTone] = useState<ToneKey>("neutro");
@@ -308,7 +318,78 @@ export function DistillForm({ user }: DistillFormProps) {
               Le Tue Ultime Richieste
             </div>
 
-            <div className="np-empty">Nessuna richiesta recente.</div>
+            {jobs.length === 0 ? (
+              <div className="np-empty">Nessuna richiesta recente.</div>
+            ) : (
+              <ul
+                data-testid="history-list"
+                style={{ listStyle: "none", padding: 0, margin: 0 }}
+              >
+                {jobs.map((job) => {
+                  const label = getStatusLabel(job.status);
+                  const date = new Date(job.createdAt).toLocaleDateString(
+                    "it-IT",
+                    { day: "2-digit", month: "short", year: "numeric" }
+                  );
+                  const isFailed = job.status === "FAILED";
+                  const isDone = job.status === "DONE";
+
+                  return (
+                    <li
+                      key={job.id}
+                      data-testid="history-item"
+                      style={{
+                        borderBottom: "1px solid var(--ink-light, #ccc)",
+                        padding: ".45rem 0",
+                        fontSize: ".78rem",
+                        fontFamily: "var(--font-body, Georgia, serif)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontStyle: "italic",
+                          marginBottom: ".2rem",
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {isDone ? (
+                          <a
+                            href={`/distill/${job.id}`}
+                            style={{ color: "var(--ink)", textDecoration: "underline" }}
+                          >
+                            {job.topic}
+                          </a>
+                        ) : (
+                          job.topic
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: ".5rem", alignItems: "center", flexWrap: "wrap" }}>
+                        <span
+                          data-testid="status-badge"
+                          style={{
+                            fontFamily: "var(--font-deck, 'Arial Narrow', sans-serif)",
+                            fontSize: ".58rem",
+                            textTransform: "uppercase",
+                            letterSpacing: ".1em",
+                            color: isFailed ? "#cc2200" : "#555",
+                            border: `1px solid ${isFailed ? "#cc2200" : "#bbb"}`,
+                            padding: ".1rem .35rem",
+                          }}
+                        >
+                          {label}
+                        </span>
+                        <span style={{ color: "var(--ink-mid, #888)", fontSize: ".68rem" }}>
+                          {date}
+                        </span>
+                        <span style={{ color: "var(--ink-mid, #888)", fontSize: ".68rem", textTransform: "capitalize" }}>
+                          {job.tone}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </div>
       </div>
