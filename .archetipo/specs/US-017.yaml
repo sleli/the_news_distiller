@@ -1,0 +1,29 @@
+schema: archetipo/spec/v2
+code: US-017
+title: Aggiungere il modello AppSettings per la configurazione della modalità Claude
+epic:
+  code: EP-005
+  title: Configurazione e Personalizzazione
+priority: HIGH
+points: 2
+status: REVIEW
+body: |-
+  #### US-017: Aggiungere il modello AppSettings per la configurazione della modalità Claude
+
+  **Epic:** EP-005 | **Priorità:** HIGH | **Punti:** 2 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio un modello `AppSettings` nel database che persista la modalità di utilizzo di Claude scelta dall'utente (chiave API o subprocess CLI),
+  in modo da rendere la scelta duratura e disponibile al worker al runtime.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, uno sviluppatore può leggere e scrivere la configurazione tramite `GET /api/settings` e `PATCH /api/settings`, e verificare che i dati siano persistiti nel database.
+
+  **Criteri di Accettazione**
+  - [ ] `AppSettings` ha i campi: `id` (singola riga, es. `"default"`), `claudeMode` (enum: `API_KEY` | `CLI_SUBPROCESS`), `updatedAt`
+  - [ ] `GET /api/settings` restituisce la configurazione corrente; se non esiste, restituisce i valori di default (`claudeMode: API_KEY`)
+  - [ ] `PATCH /api/settings` con body `{ claudeMode }` valida il valore e salva la configurazione
+  - [ ] L'endpoint è protetto da sessione valida (solo utenti autenticati possono leggere/scrivere)
+  - [ ] `npx prisma db push` completa senza errori con il nuovo modello

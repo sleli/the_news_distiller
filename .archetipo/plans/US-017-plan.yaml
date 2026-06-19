@@ -1,0 +1,99 @@
+schema: archetipo/plan/v2
+spec_code: US-017
+body: |-
+  # US-017: Aggiungere il modello AppSettings per la configurazione della modalità Claude — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-19
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-005 — Configurazione e Personalizzazione
+  **Priorità:** HIGH | **Punti:** 2
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio un modello `AppSettings` nel database che persista la modalità di utilizzo di Claude scelta dall'utente (chiave API o subprocess CLI),
+  in modo da rendere la scelta duratura e disponibile al worker al runtime.
+
+  **Criteri di Accettazione**
+  - `AppSettings` ha i campi: `id` (singola riga, es. `"default"`), `claudeMode` (enum: `API_KEY` | `CLI_SUBPROCESS`), `updatedAt`
+  - `GET /api/settings` restituisce la configurazione corrente; se non esiste, restituisce i valori di default (`claudeMode: API_KEY`)
+  - `PATCH /api/settings` con body `{ claudeMode }` valida il valore e salva la configurazione
+  - L'endpoint è protetto da sessione valida (solo utenti autenticati possono leggere/scrivere)
+  - `npx prisma db push` completa senza errori con il nuovo modello
+
+  ---
+
+  ## Soluzione Tecnica
+
+  Si aggiunge il modello `AppSettings` a Prisma con una singola riga di configurazione globale (id fisso `"default"`) e si espongono due route API autenticate per lettura e scrittura.
+
+  - Il modello usa `id String @id @default("default")` per garantire una singola riga; `claudeMode String @default("API_KEY")`; `updatedAt DateTime @updatedAt`. Mappato su `app_settings`.
+  - L'enum `claudeMode` è validato lato applicazione (valori accettati: `"API_KEY"` | `"CLI_SUBPROCESS"`) senza Prisma enum nativo — SQLite non supporta ALTER TABLE per aggiungere enum in seguito.
+  - `GET /api/settings` usa `prisma.appSettings.findUnique({ where: { id: "default" } })` e restituisce i default `{ claudeMode: "API_KEY" }` se il record è assente, senza creare il record.
+  - `PATCH /api/settings` usa `prisma.appSettings.upsert` per creare o aggiornare la configurazione atomicamente.
+  - Entrambe le route verificano la sessione tramite `getCurrentUser()` dal boilerplate esistente; restituiscono 401 se non autenticato.
+
+  ---
+
+  ## Strategia di Test
+
+  Test di integrazione con Jest (jest.integration.config.ts) su un database SQLite reale — nessun mock del DB per coerenza con le convenzioni del progetto.
+
+  - Test GET: (1) risposta con default `{ claudeMode: "API_KEY" }` quando il record non esiste; (2) risposta con dati persistiti dopo una scrittura; (3) 401 senza sessione valida.
+  - Test PATCH: (1) upsert con `claudeMode` valido; (2) errore 400 con valore non valido; (3) errore 401 senza sessione.
+  - Verifica schema: `npx prisma db push` eseguito in CI non deve produrre errori con il modello aggiunto.
+
+  ---
+
+  _Piano generato tramite ARchetipo Planning — 2026-06-19_
+tasks:
+  - id: TASK-01
+    title: Aggiungere il modello AppSettings a prisma/schema.prisma
+    description: Aggiungere il modello AppSettings con id String @id @default("default"), claudeMode String @default("API_KEY"), updatedAt DateTime @updatedAt. Aggiungere @@map("app_settings").
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Applicare lo schema al database con prisma db push
+    description: Eseguire `npx prisma db push` per creare la tabella app_settings nel database SQLite e rigenerare il Prisma client tipizzato.
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Creare GET /api/settings
+    description: 'Nuovo route handler src/app/api/settings/route.ts. Verifica sessione con getCurrentUser(), legge AppSettings (id=''default'') da Prisma, restituisce la configurazione corrente oppure { claudeMode: ''API_KEY'' } come default se il record è assente.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-03
+  - id: TASK-04
+    title: Creare PATCH /api/settings
+    description: Stesso file route.ts — handler PATCH. Valida claudeMode (accetta solo 'API_KEY' | 'CLI_SUBPROCESS', restituisce 400 altrimenti), usa prisma.appSettings.upsert per salvare. Verifica sessione con getCurrentUser().
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-04
+  - id: TASK-05
+    title: Test di integrazione GET /api/settings
+    description: 'Verificare con database reale: (1) default restituiti quando il record non esiste; (2) dati corretti dopo una scrittura; (3) 401 senza sessione valida.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-05
+  - id: TASK-06
+    title: Test di integrazione PATCH /api/settings
+    description: 'Verificare: (1) upsert con claudeMode valido ritorna 200; (2) 400 con valore non valido (''INVALID_MODE''); (3) 401 senza sessione.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-04
+    ref: TASK-06
