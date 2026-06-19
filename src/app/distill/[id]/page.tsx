@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStatusLabel } from "@/lib/distill-status";
 import { DistillResultView } from "@/components/distill/DistillResultView";
+import { JobStatusPoller } from "@/components/distill/JobStatusPoller";
 import type { DistillResult } from "@/lib/claude";
 
 function italianDate() {
@@ -64,7 +65,10 @@ export default async function DistillJobPage({ params }: Props) {
             tone={job.tone}
           />
         ) : (
-          <JobStatusView job={job} displayName={displayName} />
+          <>
+            <JobStatusView job={job} displayName={displayName} />
+            <JobStatusPoller jobId={job.id} topic={job.topic} initialStatus={job.status} />
+          </>
         )}
       </div>
       <PageFooter />
@@ -144,6 +148,7 @@ function PageFooter() {
 
 interface JobStatusViewProps {
   job: {
+    id: string;
     topic: string;
     tone: string;
     status: string;

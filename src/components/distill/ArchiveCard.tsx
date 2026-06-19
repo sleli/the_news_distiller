@@ -44,10 +44,10 @@ export function ArchiveCard({ job }: ArchiveCardProps) {
   const isRunning = job.status === "RUNNING";
 
   const cardStyle: React.CSSProperties = {
+    borderTop: `2px solid #160E02`,
+    borderRight: `2px solid #160E02`,
+    borderBottom: `2px solid #160E02`,
     borderLeft: `4px solid ${borderColor}`,
-    border: `2px solid #160E02`,
-    borderLeftWidth: "4px",
-    borderLeftColor: borderColor,
     padding: ".6rem .75rem",
     marginBottom: ".75rem",
     background: "var(--paper)",
