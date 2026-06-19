@@ -6,7 +6,7 @@ epic:
   title: Fondamenta e Infrastruttura Asincrona
 priority: HIGH
 points: 2
-status: TODO
+status: REVIEW
 scope: MVP
 body: |-
   #### US-005: Implementare il client Resend per l'invio di email transazionali

@@ -1,0 +1,83 @@
+schema: archetipo/plan/v2
+spec_code: US-005
+body: |-
+  # US-005: Implementare il client Resend per l'invio di email transazionali — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-18
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-001 — Fondamenta e Infrastruttura Asincrona
+  **Priorità:** HIGH | **Punti:** 2
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio un client Resend in `src/lib/email.ts` che invii il distillato completato all'utente,
+  in modo da notificarlo via email quando la sua richiesta è pronta.
+
+  **Criteri di Accettazione**
+  - [ ] `sendDistillEmail(to: string, topic: string, result: DistillResult)` invia un'email tramite Resend con oggetto, sintesi, sezioni posizione e lista fonti con URL cliccabili
+  - [ ] L'email include un link "Leggi nella app" che punta a `/distill/[jobId]`
+  - [ ] `RESEND_API_KEY` è letta esclusivamente da variabili d'ambiente server-side
+  - [ ] Se l'invio fallisce, la funzione lancia un errore con messaggio descrittivo
+
+  ---
+
+  ## Soluzione Tecnica
+
+  Il modulo `src/lib/email.ts` segue il pattern consolidato dei client esistenti (`claude.ts`, `tavily.ts`): `import "server-only"`, verifica della variabile d'ambiente al caricamento del modulo con `throw` immediato se assente, istanza singleton del client Resend.
+
+  - **Dipendenza esterna:** installare il pacchetto `resend` via npm. Non è presente in `package.json`.
+  - **Firma funzione:** la firma dichiarata nello spec (`to, topic, result`) non include `jobId`, ma il criterio di accettazione richiede un link a `/distill/[jobId]`. La soluzione aggiunge `jobId: string` come quarto parametro: `sendDistillEmail(to, topic, result, jobId)`. Questo è l'unico modo per soddisfare entrambi i requisiti senza alterare `DistillResult`.
+  - **Tipo `DistillResult`:** importato da `./claude` — nessuna duplicazione.
+  - **Corpo email HTML:** strutturato con oggetto `Distillato: {topic}`, blocco sintesi, lista posizioni (label + headline + corpo), lista fonti cliccabili, e bottone/link "Leggi nella app" che punta a `{APP_URL}/distill/{jobId}`. `APP_URL` derivato da `process.env.NEXT_PUBLIC_APP_URL` con fallback a `http://localhost:3000`.
+  - **Gestione errori:** se `resend.emails.send()` restituisce `{ error }`, la funzione lancia `new Error(`Invio email fallito: ${error.message}`)`. Coerente con il pattern degli altri client.
+  - **Mittente:** configurabile tramite `RESEND_FROM_EMAIL` oppure default a `noreply@resend.dev` (dominio di test Resend).
+
+  ---
+
+  ## Strategia di Test
+
+  Test unitari con `jest.mock('resend')` in `tests/unit/email.test.ts`, seguendo il pattern di `tests/unit/claude.test.ts`. Nessun test e2e necessario: `sendDistillEmail` è una funzione server-only pura senza interfaccia utente.
+
+  - **Scenario principale:** `sendDistillEmail` viene chiamata con parametri validi; verifica che `resend.emails.send` sia invocata con `to`, `subject` contenente il topic, e `html` contenente la sintesi e le URL delle fonti.
+  - **Scenario errore SDK:** quando il client Resend restituisce `{ error: { message: '...' } }`, la funzione propaga un `Error` con messaggio descrittivo.
+  - **Scenario env mancante:** il modulo lancia al load-time se `RESEND_API_KEY` è assente (verificato tramite `jest.resetModules()` e re-import dinamico).
+
+  ---
+
+  _Piano generato via ARchetipo Planning — 2026-06-18_
+tasks:
+  - id: TASK-01
+    title: Installare il pacchetto resend
+    description: Aggiungere `resend` come dipendenza di produzione con `npm install resend`. Verificare che appaia in `package.json` e `package-lock.json`.
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Creare src/lib/email.ts con sendDistillEmail
+    description: 'Implementare il modulo seguendo il pattern di `claude.ts`: `import ''server-only''`, verifica `RESEND_API_KEY` al load-time, client singleton, funzione `sendDistillEmail(to, topic, result, jobId)` con corpo HTML strutturato (sintesi, posizioni, fonti cliccabili, link app) e gestione errori.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Aggiornare .env.example con RESEND_API_KEY
+    description: Aggiungere `RESEND_API_KEY=` e `RESEND_FROM_EMAIL=` (opzionale) a `.env.example` per documentare le nuove variabili d'ambiente richieste.
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-03
+  - id: TASK-04
+    title: Unit test per sendDistillEmail
+    description: 'Creare `tests/unit/email.test.ts` con `jest.mock(''resend'')`. Coprire: invio riuscito (parametri corretti a Resend), errore SDK propagato come Error descrittivo, eccezione al load-time se RESEND_API_KEY è assente.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-04
