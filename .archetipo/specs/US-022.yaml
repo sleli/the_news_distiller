@@ -6,7 +6,7 @@ epic:
   title: Notifica e Consultazione
 priority: MEDIUM
 points: 2
-status: TODO
+status: REVIEW
 body: |-
   #### US-022: Eliminare un distillato dallo storico tramite bottone cestino vintage
 

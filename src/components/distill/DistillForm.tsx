@@ -4,6 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@prisma/client";
 import { getStatusLabel } from "@/lib/distill-status";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export interface JobSummary {
   id: string;
@@ -81,12 +90,72 @@ export function DistillForm({ user, jobs = [] }: DistillFormProps) {
   const [tone, setTone] = useState<ToneKey>("neutro");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [jobList, setJobList] = useState(jobs);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isFetchingTrending, setIsFetchingTrending] = useState(false);
+  const [pendingTrendingTopic, setPendingTrendingTopic] = useState<string | null>(null);
 
   const charCount = topic.length;
   const charClass =
     charCount >= 280 ? "danger" : charCount >= 200 ? "warning" : "";
   const isSubmitDisabled = topic.trim() === "" || isSubmitting;
   const displayName = user.name ?? user.email;
+
+  async function handleTrending() {
+    setIsFetchingTrending(true);
+    try {
+      const response = await fetch("/api/distill/trending");
+      if (!response.ok) {
+        throw new Error("API error");
+      }
+      const data = await response.json();
+      const fetchedTopic: string = typeof data.topic === "string" && data.topic ? data.topic : "";
+
+      if (!fetchedTopic) {
+        throw new Error("Topic non disponibile");
+      }
+
+      if (topic.trim() !== "") {
+        setPendingTrendingTopic(fetchedTopic);
+      } else {
+        setTopic(fetchedTopic);
+      }
+    } catch {
+      toast.error("Impossibile recuperare il trending topic. Riprova più tardi.");
+    } finally {
+      setIsFetchingTrending(false);
+    }
+  }
+
+  function handleConfirmOverwrite() {
+    if (pendingTrendingTopic !== null) {
+      setTopic(pendingTrendingTopic);
+      setPendingTrendingTopic(null);
+    }
+  }
+
+  function handleCancelOverwrite() {
+    setPendingTrendingTopic(null);
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm("Sei sicuro? Questa azione è irreversibile.")) return;
+
+    const original = jobList;
+    setDeleteError(null);
+    setJobList((prev) => prev.filter((j) => j.id !== id));
+
+    try {
+      const response = await fetch("/api/distill/" + id, { method: "DELETE" });
+      if (!response.ok) {
+        setJobList(original);
+        setDeleteError("Impossibile eliminare. Riprova.");
+      }
+    } catch {
+      setJobList(original);
+      setDeleteError("Impossibile eliminare. Riprova.");
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -208,9 +277,56 @@ export function DistillForm({ user, jobs = [] }: DistillFormProps) {
           <div className="np-col">
             <form onSubmit={handleSubmit}>
               <div className="np-form-group">
-                <label className="np-form-label" htmlFor="topic">
-                  ★ Argomento da distillare
-                </label>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: ".5rem", flexWrap: "wrap" }}>
+                  <label className="np-form-label" htmlFor="topic">
+                    ★ Argomento da distillare
+                  </label>
+                  <button
+                    type="button"
+                    data-testid="trending-btn"
+                    onClick={handleTrending}
+                    disabled={isFetchingTrending}
+                    style={{
+                      fontFamily: "var(--font-deck, 'Arial Narrow', sans-serif)",
+                      fontSize: ".62rem",
+                      textTransform: "uppercase",
+                      letterSpacing: ".1em",
+                      border: "1px solid var(--ink)",
+                      background: "none",
+                      cursor: isFetchingTrending ? "not-allowed" : "pointer",
+                      padding: ".2rem .5rem",
+                      opacity: isFetchingTrending ? 0.6 : 1,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: ".3rem",
+                      color: "var(--ink)",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {isFetchingTrending ? (
+                      <>
+                        <svg
+                          data-testid="trending-spinner"
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          style={{ animation: "spin 1s linear infinite" }}
+                        >
+                          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                        </svg>
+                        Ricerca in corso…
+                      </>
+                    ) : (
+                      "★ Argomento del giorno"
+                    )}
+                  </button>
+                </div>
                 <textarea
                   id="topic"
                   className="np-form-textarea"
@@ -225,6 +341,56 @@ export function DistillForm({ user, jobs = [] }: DistillFormProps) {
                   {charCount} / 300 caratteri
                 </div>
               </div>
+
+              {/* Dialog di conferma sovrascrittura */}
+              <Dialog open={pendingTrendingTopic !== null} onOpenChange={(open) => { if (!open) handleCancelOverwrite(); }}>
+                <DialogContent data-testid="overwrite-dialog">
+                  <DialogHeader>
+                    <DialogTitle>Sovrascrivere il topic?</DialogTitle>
+                    <DialogDescription>
+                      Il campo topic è già valorizzato. Vuoi sostituirlo con il trending topic del momento?
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <button
+                      type="button"
+                      data-testid="cancel-overwrite-btn"
+                      onClick={handleCancelOverwrite}
+                      style={{
+                        fontFamily: "var(--font-deck, 'Arial Narrow', sans-serif)",
+                        fontSize: ".62rem",
+                        textTransform: "uppercase",
+                        letterSpacing: ".1em",
+                        border: "1px solid var(--ink)",
+                        background: "none",
+                        cursor: "pointer",
+                        padding: ".3rem .7rem",
+                        color: "var(--ink)",
+                      }}
+                    >
+                      Annulla
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="confirm-overwrite-btn"
+                      onClick={handleConfirmOverwrite}
+                      style={{
+                        fontFamily: "var(--font-deck, 'Arial Narrow', sans-serif)",
+                        fontSize: ".62rem",
+                        textTransform: "uppercase",
+                        letterSpacing: ".1em",
+                        border: "1px solid var(--ink)",
+                        background: "var(--ink)",
+                        color: "var(--paper, #fff)",
+                        cursor: "pointer",
+                        padding: ".3rem .7rem",
+                      }}
+                    >
+                      Sovrascrivi
+                    </button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
               <div className="np-form-group">
                 <label className="np-form-label">Tono del distillato</label>
@@ -319,14 +485,18 @@ export function DistillForm({ user, jobs = [] }: DistillFormProps) {
               Le Tue Ultime Richieste
             </div>
 
-            {jobs.length === 0 ? (
+            {deleteError && (
+              <p className="np-error-msg">{deleteError}</p>
+            )}
+
+            {jobList.length === 0 ? (
               <div className="np-empty">Nessuna richiesta recente.</div>
             ) : (
               <ul
                 data-testid="history-list"
                 style={{ listStyle: "none", padding: 0, margin: 0 }}
               >
-                {jobs.map((job) => {
+                {jobList.map((job) => {
                   const label = getStatusLabel(job.status);
                   const date = new Date(job.createdAt).toLocaleDateString(
                     "it-IT",
@@ -344,48 +514,80 @@ export function DistillForm({ user, jobs = [] }: DistillFormProps) {
                         padding: ".45rem 0",
                         fontSize: ".78rem",
                         fontFamily: "var(--font-body, Georgia, serif)",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        gap: ".5rem",
                       }}
                     >
-                      <div
-                        style={{
-                          fontStyle: "italic",
-                          marginBottom: ".2rem",
-                          lineHeight: 1.3,
-                        }}
-                      >
-                        {isDone ? (
-                          <a
-                            href={`/distill/${job.id}`}
-                            style={{ color: "var(--ink)", textDecoration: "underline" }}
-                          >
-                            {job.topic}
-                          </a>
-                        ) : (
-                          job.topic
-                        )}
-                      </div>
-                      <div style={{ display: "flex", gap: ".5rem", alignItems: "center", flexWrap: "wrap" }}>
-                        <span
-                          data-testid="status-badge"
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
                           style={{
-                            fontFamily: "var(--font-deck, 'Arial Narrow', sans-serif)",
-                            fontSize: ".58rem",
-                            textTransform: "uppercase",
-                            letterSpacing: ".1em",
-                            color: isFailed ? "#cc2200" : "#555",
-                            border: `1px solid ${isFailed ? "#cc2200" : "#bbb"}`,
-                            padding: ".1rem .35rem",
+                            fontStyle: "italic",
+                            marginBottom: ".2rem",
+                            lineHeight: 1.3,
                           }}
                         >
-                          {label}
-                        </span>
-                        <span style={{ color: "var(--ink-mid, #888)", fontSize: ".68rem" }}>
-                          {date}
-                        </span>
-                        <span style={{ color: "var(--ink-mid, #888)", fontSize: ".68rem", textTransform: "capitalize" }}>
-                          {job.tone}
-                        </span>
+                          {isDone ? (
+                            <a
+                              href={`/distill/${job.id}`}
+                              style={{ color: "var(--ink)", textDecoration: "underline" }}
+                            >
+                              {job.topic}
+                            </a>
+                          ) : (
+                            job.topic
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: ".5rem", alignItems: "center", flexWrap: "wrap" }}>
+                          <span
+                            data-testid="status-badge"
+                            style={{
+                              fontFamily: "var(--font-deck, 'Arial Narrow', sans-serif)",
+                              fontSize: ".58rem",
+                              textTransform: "uppercase",
+                              letterSpacing: ".1em",
+                              color: isFailed ? "#cc2200" : "#555",
+                              border: `1px solid ${isFailed ? "#cc2200" : "#bbb"}`,
+                              padding: ".1rem .35rem",
+                            }}
+                          >
+                            {label}
+                          </span>
+                          <span style={{ color: "var(--ink-mid, #888)", fontSize: ".68rem" }}>
+                            {date}
+                          </span>
+                          <span style={{ color: "var(--ink-mid, #888)", fontSize: ".68rem", textTransform: "capitalize" }}>
+                            {job.tone}
+                          </span>
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        data-testid="delete-btn"
+                        aria-label="Elimina distillato"
+                        onClick={() => handleDelete(job.id)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          padding: ".15rem",
+                          color: "var(--ink-mid, #888)",
+                          flexShrink: 0,
+                          lineHeight: 1,
+                          opacity: 0.7,
+                        }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.7"; }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="1" y1="3" x2="13" y2="3"/>
+                          <path d="M4 3V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/>
+                          <path d="M2 3l1 9a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-9"/>
+                          <line x1="5" y1="6" x2="5" y2="10"/>
+                          <line x1="9" y1="6" x2="9" y2="10"/>
+                        </svg>
+                      </button>
                     </li>
                   );
                 })}

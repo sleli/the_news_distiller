@@ -1,0 +1,112 @@
+schema: archetipo/plan/v2
+spec_code: US-022
+body: |-
+  # US-022: Eliminare un distillato dallo storico tramite bottone cestino vintage — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-19
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-004 — Notifica e Consultazione
+  **Priorità:** MEDIUM | **Punti:** 2
+
+  **User Story**
+  In qualità di Marco, utente autenticato,
+  voglio eliminare un distillato dalla mia lista storico cliccando un'icona cestino in stile vintage accanto a ogni riga,
+  in modo da tenere l'archivio pulito rimuovendo le richieste che non mi interessano più.
+
+  **Criteri di Accettazione**
+  - [ ] `DELETE /api/distill/[id]` elimina il job (e i `DistillSource` associati) solo se appartiene all'utente autenticato; restituisce 404 se il job non esiste o appartiene ad altro utente; 401 senza sessione
+  - [ ] Ogni riga della lista storico mostra un bottone con icona cestino in stile vintage (SVG a tratto grezzo o illustrativo, coerente con l'estetica grafica dell'app)
+  - [ ] Prima dell'eliminazione appare un dialog di conferma ("Sei sicuro? Questa azione è irreversibile")
+  - [ ] Dopo la conferma la riga viene rimossa dalla lista in modo ottimistico (senza full reload)
+  - [ ] Se la chiamata API fallisce, la riga viene ripristinata e viene mostrato un messaggio di errore
+
+  ---
+
+  ## Soluzione Tecnica
+
+  La soluzione si articola su due layer: un endpoint REST `DELETE /api/distill/[id]` con ownership check, e un aggiornamento del componente `DistillForm` per gestire le eliminazioni ottimistiche client-side.
+
+  ### Layer API
+
+  - **Route:** Aggiungere il metodo `DELETE` alla route esistente `src/app/api/distill/[id]/route.ts` (attualmente contiene solo `GET`)
+  - **Ownership check:** `getCurrentUser()` → 401 se non autenticato; `prisma.distillJob.findUnique({ where: { id } })` → 404 se non esiste o `job.userId !== user.id`
+  - **Delete:** `prisma.distillJob.delete({ where: { id } })` — la cascade su `DistillSource` è già configurata in schema (`onDelete: Cascade`), quindi non serve cancellazione manuale delle sources
+  - **Response:** `204 No Content` on success
+
+  ### Layer UI
+
+  - **State management:** `DistillForm` riceve già `jobs` come prop; aggiungere `const [jobList, setJobList] = useState(jobs)` per permettere aggiornamenti ottimistici senza full reload
+  - **Bottone cestino vintage:** Inline SVG a tratto grezzo (stile `np-*`), posizionato accanto a ogni riga della lista storico
+  - **Dialog di conferma:** Usare `window.confirm()` o un dialog nativo inline; se l'utente conferma, procedere con la chiamata DELETE
+  - **Aggiornamento ottimistico:** Prima di chiamare l'API, rimuovere immediatamente il job da `jobList` (`setJobList(prev => prev.filter(j => j.id !== id))`). Se la chiamata fallisce, ripristinare lo stato precedente e mostrare un messaggio di errore inline
+  - **Error handling:** Stato `deleteError: string | null` per mostrare messaggi di errore in caso di fallimento API
+
+  ---
+
+  ## Strategia di Test
+
+  Copertura a tre livelli: unit test API per i casi di autenticazione e ownership, unit test componente per la logica ottimistica, e un flusso E2E completo che verifica il comportamento visibile all'utente.
+
+  - **Unit test API:** Jest per `DELETE /api/distill/[id]` — casi 204, 401, 404 (non trovato), 404 (wrong user)
+  - **Unit test componente:** Jest + Testing Library su `DistillForm` — verifica rendering bottone cestino, aggiornamento ottimistico della lista, ripristino in caso di errore
+  - **E2E:** Playwright — flusso completo login → storico → click cestino → conferma → verifica rimozione senza reload
+
+  ### Test E2E — Simulazione Utente
+
+  **Framework:** Playwright (già configurato nel progetto)
+  **Video recording:** Abilitato per tutti gli scenari, output in `docs/test-results/US-022/`
+
+  | Scenario | Descrizione del flusso |
+  |---|---|
+  | Eliminazione con successo | Utente autentica, apre /distill, vede il bottone cestino su un job DONE, clicca, conferma il dialog, la riga scompare senza reload |
+  | Annullamento dialog | Utente autentica, clicca cestino, annulla il dialog di conferma, la riga rimane nella lista |
+  | Errore API con rollback | Utente autentica, click cestino, conferma, API intercettata per restituire 500, la riga viene ripristinata e appare un messaggio di errore |
+  | Protezione 401 | Chiamata diretta a DELETE /api/distill/[id] senza sessione → risposta 401 |
+
+  ---
+
+  _Piano generato via ARchetipo Planning — 2026-06-19_
+tasks:
+  - id: TASK-01
+    title: Aggiungere metodo DELETE a src/app/api/distill/[id]/route.ts
+    description: 'Aggiungere la funzione `DELETE` alla route esistente. Logica: `getCurrentUser()` → 401 se non autenticato; `findUnique` → 404 se job non esiste o appartiene ad altro utente; `prisma.distillJob.delete` → 204. La cascade su DistillSource è già configurata in schema.'
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Unit test Jest per DELETE /api/distill/[id]
+    description: 'Aggiungere test in tests/unit/ o tests/api-distill.spec.ts per coprire: 204 su delete valido, 401 senza sessione, 404 su job non trovato, 404 su job di altro utente.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Aggiungere state ottimistico e bottone cestino vintage in DistillForm.tsx
+    description: 'Aggiungere `const [jobList, setJobList] = useState(jobs)` per gestire la lista client-side. Aggiungere bottone con SVG cestino a tratto vintage (`data-testid=''delete-btn''`) accanto a ogni riga. Implementare handleDelete: dialog di conferma, rimozione ottimistica da jobList, chiamata DELETE /api/distill/[id], rollback + errore inline se la chiamata fallisce.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-03
+  - id: TASK-04
+    title: Unit test Jest per logica ottimistica in DistillForm
+    description: 'Aggiungere test in tests/unit/components/DistillForm.test.tsx coprendo: rendering del bottone cestino su ogni riga, rimozione ottimistica della riga dopo conferma, ripristino della riga e messaggio di errore se la fetch fallisce. Usare jest.fn() per mockare fetch.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-04
+  - id: TASK-05
+    title: Test E2E Playwright per eliminazione distillato dallo storico
+    description: 'Creare tests/e2e/distill-delete.spec.ts. Abilitare video recording con output in docs/test-results/US-022/. Scenari: (1) eliminazione con successo senza reload; (2) annullamento dialog — riga rimane; (3) errore API con rollback e messaggio di errore. Seguire i pattern di autenticazione di distill-history.spec.ts.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-05

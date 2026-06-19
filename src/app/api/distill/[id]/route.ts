@@ -32,3 +32,28 @@ export async function GET(
     sources: job.sources,
   });
 }
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Non autenticato." }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  const job = await prisma.distillJob.findUnique({
+    where: { id },
+    select: { id: true, userId: true },
+  });
+
+  if (!job || job.userId !== user.id) {
+    return NextResponse.json({ error: "Job non trovato." }, { status: 404 });
+  }
+
+  await prisma.distillJob.delete({ where: { id } });
+
+  return new NextResponse(null, { status: 204 });
+}

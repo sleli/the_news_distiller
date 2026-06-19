@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { DistillForm, JobSummary } from "@/components/distill/DistillForm";
 import type { User } from "@prisma/client";
 
@@ -77,5 +78,74 @@ describe("DistillForm — history sidebar", () => {
     render(<DistillForm user={mockUser} jobs={jobs} />);
     const items = screen.getAllByTestId("history-item");
     expect(items).toHaveLength(2);
+  });
+});
+
+describe("DistillForm — eliminazione ottimistica", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("mostra il bottone cestino per ogni job", () => {
+    const jobs = [
+      makeJob({ id: "j1", topic: "Primo argomento", status: "DONE" }),
+      makeJob({ id: "j2", topic: "Secondo argomento", status: "PENDING" }),
+    ];
+    render(<DistillForm user={mockUser} jobs={jobs} />);
+    const deleteBtns = screen.getAllByTestId("delete-btn");
+    expect(deleteBtns).toHaveLength(2);
+  });
+
+  it("rimuove la riga ottimisticamente dopo conferma", async () => {
+    jest.spyOn(window, "confirm").mockReturnValue(true);
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 204 });
+
+    const jobs = [
+      makeJob({ id: "j1", topic: "Primo argomento", status: "DONE" }),
+      makeJob({ id: "j2", topic: "Secondo argomento", status: "PENDING" }),
+    ];
+    render(<DistillForm user={mockUser} jobs={jobs} />);
+
+    const deleteBtns = screen.getAllByTestId("delete-btn");
+    await userEvent.click(deleteBtns[0]);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("history-item")).toHaveLength(1);
+    });
+  });
+
+  it("non rimuove la riga se l'utente annulla il dialog", async () => {
+    jest.spyOn(window, "confirm").mockReturnValue(false);
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock;
+
+    const jobs = [
+      makeJob({ id: "j1", topic: "Primo argomento", status: "DONE" }),
+      makeJob({ id: "j2", topic: "Secondo argomento", status: "PENDING" }),
+    ];
+    render(<DistillForm user={mockUser} jobs={jobs} />);
+
+    const deleteBtns = screen.getAllByTestId("delete-btn");
+    await userEvent.click(deleteBtns[0]);
+
+    expect(screen.getAllByTestId("history-item")).toHaveLength(2);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("ripristina la riga e mostra errore se la chiamata API fallisce", async () => {
+    jest.spyOn(window, "confirm").mockReturnValue(true);
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500 });
+
+    const jobs = [makeJob({ id: "j1", topic: "Primo argomento", status: "DONE" })];
+    render(<DistillForm user={mockUser} jobs={jobs} />);
+
+    const deleteBtn = screen.getByTestId("delete-btn");
+    await userEvent.click(deleteBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("history-item")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Impossibile eliminare/i)).toBeInTheDocument();
   });
 });
