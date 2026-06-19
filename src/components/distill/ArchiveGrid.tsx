@@ -24,7 +24,7 @@ export function ArchiveGrid({ initialJobs }: ArchiveGridProps) {
   const prevStatusRef = useRef<Map<string, string>>(
     new Map(initialJobs.map((j) => [j.id, j.status]))
   );
-  const { notify } = useBrowserNotification();
+  const { notify, permission, requestPermission } = useBrowserNotification();
 
   const hasLive = jobs.some((j) => j.status === "RUNNING" || j.status === "PENDING");
 
@@ -56,6 +56,44 @@ export function ArchiveGrid({ initialJobs }: ArchiveGridProps) {
 
   return (
     <div>
+      {/* Notification permission banner */}
+      {hasLive && permission === "default" && (
+        <div
+          data-testid="notification-prompt"
+          style={{
+            marginBottom: ".8rem",
+            padding: ".5rem .75rem",
+            border: "1px solid var(--ink-light, #ccc)",
+            borderLeft: "3px solid #0055B8",
+            fontFamily: "var(--font-body, Georgia, serif)",
+            fontSize: ".78rem",
+            color: "var(--ink-mid)",
+            display: "flex",
+            alignItems: "center",
+            gap: ".75rem",
+            flexWrap: "wrap",
+          }}
+        >
+          <span>Abilita le notifiche browser per sapere quando un distillato è pronto.</span>
+          <button
+            onClick={requestPermission}
+            style={{
+              fontFamily: "var(--font-deck, 'Arial Narrow', sans-serif)",
+              fontSize: ".6rem",
+              textTransform: "uppercase",
+              letterSpacing: ".08em",
+              border: "1px solid #0055B8",
+              background: "#0055B8",
+              color: "#fff",
+              padding: ".2rem .55rem",
+              cursor: "pointer",
+            }}
+          >
+            Abilita
+          </button>
+        </div>
+      )}
+
       {/* Filter chips */}
       <div
         data-testid="filter-chips"
