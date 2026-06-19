@@ -1,0 +1,30 @@
+schema: archetipo/spec/v2
+code: US-018
+title: Creare la pagina Settings con la sezione di configurazione modalità Claude
+epic:
+  code: EP-005
+  title: Configurazione e Personalizzazione
+priority: HIGH
+points: 3
+status: REVIEW
+body: |-
+  #### US-018: Creare la pagina Settings con la sezione di configurazione modalità Claude
+
+  **Epic:** EP-005 | **Priorità:** HIGH | **Punti:** 3 | **Stato:** TODO
+  **Bloccato da:** US-017
+
+  **User Story**
+  In qualità di Marco, utente autenticato,
+  voglio una pagina di configurazione dell'app dove posso scegliere se Claude usa la chiave API Anthropic o il client CLI installato localmente (`claude -p`),
+  in modo da adattare il comportamento del sistema all'ambiente in cui gira.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, Marco può visitare `/settings`, vedere la sezione "Modalità Claude" con le due opzioni, selezionare "Claude CLI (subprocess)" e salvare — il form conferma il salvataggio e la scelta è persistita nel database.
+
+  **Criteri di Accettazione**
+  - [ ] La pagina `/settings` è protetta da sessione (redirect per utenti non autenticati)
+  - [ ] La sezione "Modalità Claude" mostra due opzioni selezionabili: "Chiave API Anthropic" (default) e "Claude CLI (`claude -p`)"
+  - [ ] Ogni opzione include una breve descrizione del requisito (es. "Richiede `ANTHROPIC_API_KEY`" vs "Richiede Claude CLI installato localmente")
+  - [ ] Il form carica la configurazione corrente da `GET /api/settings` all'apertura della pagina
+  - [ ] Il pulsante "Salva" chiama `PATCH /api/settings` e mostra un feedback di conferma o errore
+  - [ ] La pagina è raggiungibile dal menu/navigazione principale

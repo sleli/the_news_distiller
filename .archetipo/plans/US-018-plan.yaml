@@ -1,0 +1,50 @@
+schema: archetipo/plan/v2
+spec_code: US-018
+body: "# US-018: Creare la pagina Settings con la sezione di configurazione modalità Claude — Piano di Implementazione\n\n**Generato da:** ARchetipo Planning Team\n**Data:** 2026-06-19\n\n---\n\n## Spec\n\n**Epic:** EP-005 — Configurazione e Personalizzazione\n**Priorità:** HIGH | **Punti:** 3\n\n**User Story**\nIn qualità di Marco (utente autenticato),\nvoglio una pagina di configurazione dell'app dove posso scegliere se Claude usa la chiave API Anthropic o il client CLI installato localmente (`claude -p`),\nin modo da adattare il comportamento del sistema all'ambiente in cui gira.\n\n**Criteri di Accettazione**\n- La pagina `/settings` è protetta da sessione (redirect per utenti non autenticati)\n- La sezione \"Modalità Claude\" mostra due opzioni selezionabili: \"Chiave API Anthropic\" (default) e \"Claude CLI (`claude -p`)\"\n- Ogni opzione include una breve descrizione del requisito (es. \"Richiede `ANTHROPIC_API_KEY`\" vs \"Richiede Claude CLI installato localmente\")\n- Il form carica la configurazione corrente da `GET /api/settings` all'apertura della pagina\n- Il pulsante \"Salva\" chiama `PATCH /api/settings` e mostra un feedback di conferma o errore\n- La pagina è raggiungibile dal menu/navigazione principale\n\n**Dipende da:** US-017 (modello AppSettings e API /settings devono essere già implementati)\n\n---\n\n## Soluzione Tecnica\n\nSi crea la pagina `/settings` come Server Component che carica la configurazione lato server e la passa a un Client Component `SettingsForm`; il middleware viene esteso per proteggere il nuovo path.\n\n- **Middleware:** Aggiungere `/settings` ai path protetti in `src/middleware.ts` — stesso pattern di verifica sessione usato per `/dashboard` e `/distill`.\n- **Pagina server:** `src/app/settings/page.tsx` è un Server Component che chiama `getCurrentUser()` (redirect se assente) e legge `GET /api/settings` server-side (fetch interna) per ottenere `claudeMode` corrente da passare come prop a `SettingsForm`.\n- **SettingsForm client component:** `src/components/settings/SettingsForm.tsx` — gestisce lo stato UI (modalità selezionata, loading, feedback). Le due opzioni sono card interattive (stile editoriale): la selezionata si evidenzia con inversione fondo/testo. Il pulsante \"Salva\" chiama `PATCH /api/settings` e mostra toast/feedback inline di conferma o errore.\n- **Design:** Il mockup in `docs/mockups/US-018/index.html` definisce la struttura visiva — card a inversione tipografica, sidebar navigazione impostazioni, sezioni condizionali, feedback di salvataggio animato. Riprodurre il linguaggio editoriale del progetto (Playfair Display, Oswald, filetti tipografici).\n- **Navigazione:** Aggiungere un link \"Impostazioni\" alla navbar/toolbar condivisa esistente nelle pagine distill. Verificare coerenza con la navigazione già presente.\n\n---\n\n## Strategia di Test\n\nTest unitari Jest per `SettingsForm` (comportamento form) e test E2E Playwright per il flusso completo di configurazione utente.\n\n- Test unitario SettingsForm: (1) rendering con `claudeMode` iniziale corretto; (2) cambio selezione aggiorna lo stato; (3) click Salva chiama `PATCH /api/settings`; (4) risposta ok mostra conferma; (5) risposta errore mostra messaggio di errore.\n- Test redirect: utente non autenticato che accede a `/settings` viene reindirizzato al login.\n\n### Test E2E — Simulazione Utente\n\n**Framework:** Playwright\n**Video recording:** Abilitato per tutti gli scenari, output in `docs/test-results/US-018/`\n\n| Scenario | Descrizione del flusso |\n|---|---|\n| Configurazione modalità CLI | Utente autenticato visita `/settings`, vede la modalità corrente selezionata, cambia in \"Claude CLI\", clicca Salva, vede conferma di salvataggio, ricarica la pagina e verifica che la selezione CLI persista |\n| Persistenza dopo logout/login | Utente salva modalità CLI, effettua logout, effettua login, visita `/settings` e verifica che la modalità sia ancora CLI |\n| Redirect non autenticato | Utente non autenticato accede a `/settings`, viene reindirizzato alla pagina di login |\n\n---\n\n> \U0001F3A8 Mockups per questa spec disponibili in `docs/mockups/US-018/`\n\n_Piano generato tramite ARchetipo Planning — 2026-06-19_"
+tasks:
+  - id: TASK-01
+    title: Estendere il middleware per proteggere /settings
+    description: Aggiungere '/settings' ai path protetti in src/middleware.ts, applicando lo stesso pattern di verifica sessione usato per /distill.
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Creare SettingsForm client component
+    description: 'src/components/settings/SettingsForm.tsx — client component con due card selezionabili (API_KEY / CLI_SUBPROCESS) nello stile editoriale del mockup (docs/mockups/US-018/index.html): inversione tipografica sulla card attiva, descrizioni del requisito, pulsante Salva con stato loading, feedback di conferma/errore inline.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Creare la pagina /settings
+    description: src/app/settings/page.tsx — Server Component che verifica la sessione (redirect se assente), legge la configurazione corrente via fetch interna a GET /api/settings server-side, e renderizza SettingsForm con initialMode come prop.
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-03
+  - id: TASK-04
+    title: Aggiungere link Settings alla navigazione principale
+    description: Aggiungere un link visibile a /settings nella toolbar/navbar condivisa dalle pagine distill. Verificare coerenza visiva con la navigazione esistente.
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-04
+  - id: TASK-05
+    title: Test unitario SettingsForm
+    description: 'Verificare: (1) rendering con claudeMode iniziale; (2) cambio selezione aggiorna stato; (3) click Salva chiama PATCH /api/settings; (4) risposta ok mostra conferma; (5) risposta errore mostra messaggio di errore.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-05
+  - id: TASK-06
+    title: Test E2E — flusso configurazione modalità Claude
+    description: 'Playwright con video recording in docs/test-results/US-018/. Scenario 1: autenticato, visita /settings, cambia in CLI_SUBPROCESS, salva, verifica conferma, ricarica e verifica persistenza. Scenario 2: logout/login e verifica persistenza. Scenario 3: non autenticato redirect al login.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-06
