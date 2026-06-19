@@ -1,0 +1,36 @@
+schema: archetipo/plan/v2
+spec_code: US-012
+body: "# US-012: Implementare la gestione degli errori e dei job bloccati — Piano di Implementazione\n\n**Generato da:** ARchetipo Planning Team  \n**Data:** 2026-06-19\n\n---\n\n## Spec\n\n**Epic:** EP-003 — Elaborazione Asincrona  \n**Priorità:** MEDIUM | **Punti:** 2\n\n**User Story**  \nIn qualità di sviluppatore,  \nvoglio che il worker gestisca gli errori in modo robusto e aggiorni lo status dei job in modo coerente,  \nin modo da garantire che nessun job rimanga bloccato in stato `RUNNING` indefinitamente.\n\n**Criteri di Accettazione**\n- [ ] Errori da Tavily (timeout, zero risultati) impostano il job a `FAILED` con messaggio d'errore persistito\n- [ ] Errori da Claude (risposta invalida, API error) impostano il job a `FAILED`\n- [ ] Errori da Resend non impostano il job a `FAILED` (il risultato è già salvato); l'errore viene solo loggato\n- [ ] Job in status `RUNNING` da più di 10 minuti vengono reimpostati a `FAILED` al prossimo ciclo di polling\n\n---\n\n## Soluzione Tecnica\n\nIl worker implementa già la gestione degli errori per Tavily e Claude tramite il blocco try/catch in `processJob()` (`worker/index.ts`). Sono necessarie due modifiche chirurgiche: isolamento degli errori Resend in `processJobFull()` e aggiunta di un meccanismo di recupero per job bloccati in stato `RUNNING`.\n\n- **Isolamento errori Resend**: In `worker/processor.ts`, wrappare `sendDistillEmail` in un blocco try/catch separato. Il job è già impostato a `DONE` prima della chiamata email, quindi un'eccezione Resend deve solo essere loggata — non propagata al gestore esterno in `processJob()`.\n- **Recupero job bloccati**: Aggiungere `recoverStuckJobs(prisma: PrismaClient)` in `worker/index.ts` che interroga i job con `status = \"RUNNING\"` e `updatedAt < now - STUCK_JOB_THRESHOLD_MS`, poi li imposta a `FAILED` con messaggio diagnostico nel campo `result`. La funzione viene chiamata all'inizio di ogni `pollOnce()`.\n- **Costante esportata**: `export const STUCK_JOB_THRESHOLD_MS = 10 * 60 * 1000` in `worker/index.ts` per testabilità e futura configurazione.\n- **Schema invariato**: I campi `updatedAt` (`@updatedAt` Prisma) e `result` (`Json?`) già presenti sono sufficienti — nessuna migrazione necessaria.\n- **Pattern coerente**: `recoverStuckJobs` usa `findMany` + `update` in loop (anziché `updateMany`) coerentemente col pattern esistente, che permette di persistere il campo JSON `result` con il messaggio di errore per ciascun job.\n\n---\n\n## Strategia di Test\n\nTest unitari per i due nuovi comportamenti (email isolation e stuck recovery) con mock delle dipendenze Prisma; test di integrazione su DB SQLite reale per validare il ciclo end-to-end.\n\n- **TASK-03 (Unit)**: Aggiunge il caso `sendDistillEmail throws → processJobFull risolve senza eccezione` in `tests/unit/processor.test.ts`; verifica che `mockUpdate` sia stato chiamato con `status: \"DONE\"` e che l'errore email non propaghi.\n- **TASK-04 (Unit)**: Estende `tests/unit/worker.test.ts` con un describe `recoverStuckJobs`; usa `jest.spyOn(Date, 'now')` per simulare lo scorrere del tempo; verifica che i job oltre soglia vengano aggiornati a `FAILED` e quelli entro soglia siano ignorati.\n- **TASK-05 (Integrazione)**: Estende `tests/integration/worker-poll.test.ts` con due scenari: (1) `sendDistillEmail` mockata a throw → status finale del job è `DONE`; (2) job creato con `status: \"RUNNING\"` e backdatato a 11 minuti fa via `prisma.$executeRaw` (SQLite raw SQL) → dopo `pollOnce()` lo status è `FAILED`.\n\n_Piano generato via ARchetipo Planning — 2026-06-19_"
+tasks:
+  - id: TASK-01
+    title: Isolare gli errori Resend in worker/processor.ts
+    description: Wrappare la chiamata `sendDistillEmail` in un blocco try/catch separato dentro `processJobFull()`. In caso di eccezione, loggare l'errore con `console.error` ma non rilanciarlo — il job è già stato aggiornato a DONE prima di questa chiamata, quindi l'errore email non deve influenzare il suo status finale.
+    type: Impl
+    status: TODO
+  - id: TASK-02
+    title: Aggiungere recoverStuckJobs() e integrarla in pollOnce()
+    description: 'In `worker/index.ts`: (1) esportare `STUCK_JOB_THRESHOLD_MS = 10 * 60 * 1000`; (2) implementare `export async function recoverStuckJobs(prisma: PrismaClient)` che chiama `findMany` per i job con `status=RUNNING` e `updatedAt < new Date(Date.now() - STUCK_JOB_THRESHOLD_MS)`, poi aggiorna ciascuno a `status: FAILED, result: { error: ''...'' }` con `update` in loop; (3) chiamare `await recoverStuckJobs(prisma)` all''inizio di `pollOnce()` prima del `findMany` dei PENDING.'
+    type: Impl
+    status: TODO
+  - id: TASK-03
+    title: 'Unit test: email error isolation in processor.test.ts'
+    description: 'Aggiungere un describe `caso errore: sendDistillEmail lancia eccezione` in `tests/unit/processor.test.ts`. Il mock di `sendDistillEmail` viene configurato con `mockRejectedValueOnce(new Error(''Resend error''))`. Verificare che: `processJobFull` risolve senza eccezione, `mockUpdate` è stato chiamato con `status: ''DONE''`, `mockCreateMany` è stato chiamato correttamente. Spiare `console.error` per verificare il log dell''errore.'
+    type: Test
+    status: TODO
+    dependencies:
+      - TASK-01
+  - id: TASK-04
+    title: 'Unit test: recoverStuckJobs() in worker.test.ts'
+    description: 'Aggiungere un describe `recoverStuckJobs` in `tests/unit/worker.test.ts`. Usare `jest.spyOn(Date, ''now'')` per restituire un timestamp fisso. Caso 1: job con `updatedAt` backdatato oltre soglia → `mockFindMany` restituisce il job, `mockUpdate` viene chiamato con `status: FAILED`. Caso 2: job con `updatedAt` recente → `mockFindMany` restituisce job, ma `mockUpdate` non viene chiamato. Aggiungere `findMany` al mock PrismaClient per `distillJob` (già presente nel mock esistente).'
+    type: Test
+    status: TODO
+    dependencies:
+      - TASK-02
+  - id: TASK-05
+    title: 'Integration test: email failure + stuck job recovery su DB reale'
+    description: 'Estendere `tests/integration/worker-poll.test.ts` con due nuovi test nel ciclo di integrazione: (1) Configurare il mock di `sendDistillEmail` per lanciare eccezione, creare job PENDING, chiamare `pollOnce()`, verificare che `updatedJob.status === ''DONE''`. (2) Creare job con `status: ''RUNNING''`, backdatare `updated_at` via `prisma.$executeRaw(''UPDATE distill_jobs SET updated_at = datetime("now", "-11 minutes") WHERE id = ?'', jobId)`, chiamare `pollOnce()`, verificare che `updatedJob.status === ''FAILED''`.'
+    type: Test
+    status: TODO
+    dependencies:
+      - TASK-03
+      - TASK-04

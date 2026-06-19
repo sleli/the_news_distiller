@@ -1,13 +1,9 @@
 import { Resend } from "resend";
 import type { DistillResult } from "./claude";
 
-if (!process.env.RESEND_API_KEY) {
-  throw new Error(
-    "RESEND_API_KEY non configurata. Aggiungi la variabile d'ambiente server-side prima di usare questo modulo."
-  );
-}
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? "noreply@resend.dev";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -58,6 +54,11 @@ export async function sendDistillEmail(
   result: DistillResult,
   jobId: string
 ): Promise<void> {
+  if (!resend) {
+    console.warn("[email] RESEND_API_KEY assente — invio email saltato.");
+    return;
+  }
+
   const { error } = await resend.emails.send({
     from: FROM_EMAIL,
     to,
