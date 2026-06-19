@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStatusLabel } from "@/lib/distill-status";
+import { DistillResultView } from "@/components/distill/DistillResultView";
+import type { DistillResult } from "@/lib/claude";
 
 function italianDate() {
   const now = new Date();
@@ -20,15 +22,61 @@ export default async function DistillJobPage({ params }: Props) {
 
   const { id } = await params;
 
-  const job = await prisma.distillJob.findUnique({ where: { id } });
-  if (!job || job.userId !== user.id) redirect("/distill");
+  const job = await prisma.distillJob.findUnique({
+    where: { id },
+    include: { sources: true },
+  });
 
   const displayName = user.name ?? user.email;
-  const statusLabel = getStatusLabel(job.status);
+
+  // Neutral error for not found or wrong user — same message, no info leak
+  if (!job || job.userId !== user.id) {
+    return (
+      <div className="np-paper">
+        <PageShell displayName={displayName} />
+        <div className="np-content">
+          <div data-testid="error-page" className="np-rule-double" style={{ paddingTop: "2rem" }}>
+            <span className="np-hl-kicker">Errore</span>
+            <div className="np-hl-mega" style={{ lineHeight: 1 }}>
+              Pagina non trovata
+            </div>
+            <p className="np-hl-deck">
+              Il distillato richiesto non esiste o non è accessibile.
+            </p>
+            <a href="/distill" className="np-btn red" style={{ textDecoration: "none", display: "inline-block" }}>
+              ← Torna alla Redazione
+            </a>
+          </div>
+        </div>
+        <PageFooter />
+      </div>
+    );
+  }
 
   return (
     <div className="np-paper">
-      {/* MASTHEAD */}
+      <PageShell displayName={displayName} />
+      <div className="np-content">
+        {job.status === "DONE" ? (
+          <DistillResultView
+            result={job.result as unknown as DistillResult}
+            topic={job.topic}
+            tone={job.tone}
+          />
+        ) : (
+          <JobStatusView job={job} displayName={displayName} />
+        )}
+      </div>
+      <PageFooter />
+    </div>
+  );
+}
+
+// ── Sub-components ──────────────────────────────────────────────
+
+function PageShell({ displayName }: { displayName: string }) {
+  return (
+    <>
       <header className="np-masthead">
         <div className="np-masthead-rule-top" />
         <div className="np-masthead-rule-thin" />
@@ -45,7 +93,6 @@ export default async function DistillJobPage({ params }: Props) {
         </div>
       </header>
 
-      {/* NAVBAR */}
       <nav className="np-navbar">
         <div className="np-navbar-links">
           <a href="/distill">Nuova Richiesta</a>
@@ -72,7 +119,6 @@ export default async function DistillJobPage({ params }: Props) {
         </div>
       </nav>
 
-      {/* TICKER */}
       <div className="np-ticker">
         <span className="np-ticker-inner">
           ULTIME ORE: Il Distillatore analizza fonti in tempo reale
@@ -81,72 +127,95 @@ export default async function DistillJobPage({ params }: Props) {
           Argomenti in italiano, inglese, spagnolo e altre lingue &nbsp;★&nbsp;
         </span>
       </div>
+    </>
+  );
+}
 
-      {/* PAGE CONTENT */}
-      <div className="np-content">
-        <div className="np-rule-double" />
-        <span className="np-hl-kicker">Redazione — Conferma Richiesta</span>
-        <div className="np-hl-mega" style={{ lineHeight: 1 }}>
-          Richiesta
-          <br />
-          in Elaborazione
-        </div>
-        <p className="np-hl-deck">
-          La tua segnalazione è stata ricevuta. Il Distillatore sta raccogliendo
-          le fonti e preparerà il riassunto al più presto.
-        </p>
-        <div className="np-byline">Accesso riservato agli abbonati — {displayName}</div>
-        <div className="np-rule" style={{ marginTop: ".6rem", marginBottom: ".6rem" }} />
+function PageFooter() {
+  return (
+    <footer className="np-footer">
+      <span>© 1974 The News Distiller</span>
+      <span>Il Distillatore è una macchina — tu sei il giudice</span>
+      <span>Milano, Italia</span>
+    </footer>
+  );
+}
 
-        <div className="np-col-2">
-          {/* LEFT: job details */}
-          <div className="np-col">
-            <div className="np-form-group">
-              <div
-                className="np-sidebar-label"
-                style={{ marginBottom: ".4rem" }}
-              >
-                Argomento richiesto
-              </div>
-              <div
-                style={{
-                  fontFamily: "var(--font-body, Georgia, serif)",
-                  fontSize: "1.1rem",
-                  fontStyle: "italic",
-                  color: "var(--ink)",
-                  lineHeight: 1.4,
-                  marginBottom: ".8rem",
-                }}
-              >
-                &ldquo;{job.topic}&rdquo;
-              </div>
+interface JobStatusViewProps {
+  job: {
+    topic: string;
+    tone: string;
+    status: string;
+  };
+  displayName: string;
+}
+
+function JobStatusView({ job, displayName }: JobStatusViewProps) {
+  const statusLabel = getStatusLabel(job.status);
+  const isFailed = job.status === "FAILED";
+
+  return (
+    <>
+      <div className="np-rule-double" />
+      <span className="np-hl-kicker">Redazione — Conferma Richiesta</span>
+      <div className="np-hl-mega" style={{ lineHeight: 1 }}>
+        {isFailed ? (
+          <>Elaborazione<br />Fallita</>
+        ) : (
+          <>Richiesta<br />in Elaborazione</>
+        )}
+      </div>
+      <p className="np-hl-deck">
+        {isFailed
+          ? "Si è verificato un errore durante l'elaborazione del distillato."
+          : "La tua segnalazione è stata ricevuta. Il Distillatore sta raccogliendo le fonti e preparerà il riassunto al più presto."}
+      </p>
+      <div className="np-byline">Accesso riservato agli abbonati — {displayName}</div>
+      <div className="np-rule" style={{ marginTop: ".6rem", marginBottom: ".6rem" }} />
+
+      <div className="np-col-2">
+        <div className="np-col">
+          <div className="np-form-group">
+            <div className="np-sidebar-label" style={{ marginBottom: ".4rem" }}>
+              Argomento richiesto
             </div>
-
-            <div className="np-form-group">
-              <div
-                className="np-sidebar-label"
-                style={{ marginBottom: ".4rem" }}
-              >
-                Stato
-              </div>
-              <div
-                data-testid="job-status"
-                style={{
-                  display: "inline-block",
-                  fontFamily: "var(--font-deck, 'Arial Narrow', sans-serif)",
-                  fontSize: ".65rem",
-                  textTransform: "uppercase",
-                  letterSpacing: ".14em",
-                  color: job.status === "FAILED" ? "#cc2200" : "#006622",
-                  border: `1px solid ${job.status === "FAILED" ? "#cc2200" : "#006622"}`,
-                  padding: ".2rem .5rem",
-                  marginBottom: ".8rem",
-                }}
-              >
-                {statusLabel}
-              </div>
+            <div
+              style={{
+                fontFamily: "var(--font-body, Georgia, serif)",
+                fontSize: "1.1rem",
+                fontStyle: "italic",
+                color: "var(--ink)",
+                lineHeight: 1.4,
+                marginBottom: ".8rem",
+              }}
+            >
+              &ldquo;{job.topic}&rdquo;
             </div>
+          </div>
 
+          <div className="np-form-group">
+            <div className="np-sidebar-label" style={{ marginBottom: ".4rem" }}>
+              Stato
+            </div>
+            <div
+              data-testid="job-status"
+              style={{
+                display: "inline-block",
+                fontFamily: "var(--font-deck, 'Arial Narrow', sans-serif)",
+                fontSize: ".65rem",
+                textTransform: "uppercase",
+                letterSpacing: ".14em",
+                color: isFailed ? "#cc2200" : "#006622",
+                border: `1px solid ${isFailed ? "#cc2200" : "#006622"}`,
+                padding: ".2rem .5rem",
+                marginBottom: ".8rem",
+              }}
+            >
+              {statusLabel}
+            </div>
+          </div>
+
+          {!isFailed && (
             <div
               data-testid="email-message"
               style={{
@@ -161,40 +230,34 @@ export default async function DistillJobPage({ params }: Props) {
             >
               Riceverai una email quando il distillato è pronto.
             </div>
+          )}
 
-            <a href="/distill" className="np-btn red" style={{ textDecoration: "none", display: "inline-block" }}>
-              ★ Nuova Richiesta
-            </a>
-          </div>
+          <a href="/distill" className="np-btn red" style={{ textDecoration: "none", display: "inline-block" }}>
+            ★ Nuova Richiesta
+          </a>
+        </div>
 
-          {/* RIGHT: sidebar */}
-          <div className="np-col">
-            <div className="np-sidebar-label">Note dalla Redazione</div>
+        <div className="np-col">
+          <div className="np-sidebar-label">Note dalla Redazione</div>
+          {isFailed ? (
             <div className="np-sidebar-tip">
-              <strong>Tempi di elaborazione:</strong> Il Distillatore raccoglie
-              e analizza le fonti in tempo reale. In genere il processo richiede
-              meno di 5 minuti.
+              <strong>Errore di elaborazione:</strong> Il Distillatore non è riuscito a completare l&apos;analisi. Puoi provare a inviare una nuova richiesta.
             </div>
-            <div className="np-sidebar-tip">
-              <strong>Email di notifica:</strong> Riceverai un&apos;email
-              all&apos;indirizzo associato al tuo account non appena il
-              distillato è pronto.
-            </div>
-            <div className="np-sidebar-tip">
-              <strong>Nuova richiesta:</strong> Puoi inviare un&apos;altra
-              richiesta in qualsiasi momento cliccando &ldquo;Nuova
-              Richiesta&rdquo;.
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="np-sidebar-tip">
+                <strong>Tempi di elaborazione:</strong> Il Distillatore raccoglie e analizza le fonti in tempo reale. In genere il processo richiede meno di 5 minuti.
+              </div>
+              <div className="np-sidebar-tip">
+                <strong>Email di notifica:</strong> Riceverai un&apos;email all&apos;indirizzo associato al tuo account non appena il distillato è pronto.
+              </div>
+              <div className="np-sidebar-tip">
+                <strong>Nuova richiesta:</strong> Puoi inviare un&apos;altra richiesta in qualsiasi momento cliccando &ldquo;Nuova Richiesta&rdquo;.
+              </div>
+            </>
+          )}
         </div>
       </div>
-
-      {/* FOOTER */}
-      <footer className="np-footer">
-        <span>© 1974 The News Distiller</span>
-        <span>Il Distillatore è una macchina — tu sei il giudice</span>
-        <span>Milano, Italia</span>
-      </footer>
-    </div>
+    </>
   );
 }
