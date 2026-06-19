@@ -1,0 +1,34 @@
+schema: archetipo/spec/v2
+code: US-020
+title: Creare la pagina Archivio dedicata con layout a griglia e polling automatico
+epic:
+  code: EP-004
+  title: Notifica e Consultazione
+priority: HIGH
+points: 3
+status: REVIEW
+blocked_by:
+  - US-014
+body: |-
+  #### US-020: Creare la pagina Archivio dedicata con layout a griglia e polling automatico
+
+  **Epic:** EP-004 | **Priorità:** HIGH | **Punti:** 3 | **Stato:** TODO
+  **Bloccato da:** US-014
+
+  **User Story**
+  In qualità di Marco, utente autenticato,
+  voglio una pagina `/archivio` raggiungibile dalla navbar che mostri tutti i miei distillati in un layout a griglia con metadati ricchi e aggiornamento automatico per i job in corso,
+  in modo da avere una vista panoramica dedicata allo storico senza dover passare per la pagina di richiesta.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, Marco può cliccare "Archivio" nella navbar, atterrare su `/archivio` e vedere i suoi distillati in una griglia a due colonne con topic, data, tono, numero di fonti e posizioni (per i job completati), snippet del risultato e indicatore di stato visivo per bordo colorato. I job in stato RUNNING mostrano un aggiornamento automatico ogni pochi secondi senza ricaricare la pagina.
+
+  **Criteri di Accettazione**
+  - [ ] La rotta `/archivio` esiste ed è protetta da sessione (redirect a `/auth/signin` per utenti non autenticati)
+  - [ ] La voce "Archivio" nella navbar punta a `/archivio` ed è evidenziata quando ci si trova sulla pagina
+  - [ ] I distillati sono mostrati in una griglia a due colonne (singola colonna su mobile) ordinati per `createdAt` DESC
+  - [ ] Ogni card mostra: topic, data e tono, indicatore di stato tramite bordo colorato (giallo = pending, blu = running, verde = done, rosso = error)
+  - [ ] Le card dei job DONE mostrano lo snippet del campo `result.summary` (troncato) e i contatori "N fonti — M posizioni"
+  - [ ] Le card dei job DONE sono cliccabili e portano a `/distill/[id]`
+  - [ ] I job con status RUNNING mostrano un indicatore testuale di aggiornamento automatico e la pagina fa polling ogni 5 secondi se almeno un job è RUNNING o PENDING
+  - [ ] Se non ci sono distillati, la pagina mostra un messaggio vuoto con link a `/distill` per creare il primo

@@ -45,6 +45,7 @@ export default async function SettingsPage() {
       <nav className="np-navbar">
         <div className="np-navbar-links">
           <a href="/distill">Nuova Richiesta</a>
+          <a href="/archivio">Archivio</a>
           <a href="/settings" className="active">Impostazioni</a>
         </div>
         <div className="np-navbar-user">

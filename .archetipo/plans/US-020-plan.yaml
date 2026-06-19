@@ -1,0 +1,184 @@
+schema: archetipo/plan/v2
+spec_code: US-020
+body: |-
+  # US-020: Creare la pagina Archivio dedicata con layout a griglia e polling automatico — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-19
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-004 — Notifica e Consultazione
+  **Priorità:** HIGH | **Punti:** 3
+
+  **User Story**
+  In qualità di Marco, utente autenticato,
+  voglio una pagina `/archivio` raggiungibile dalla navbar che mostri tutti i miei distillati in un layout a griglia con metadati ricchi e aggiornamento automatico per i job in corso,
+  in modo da avere una vista panoramica dedicata allo storico senza dover passare per la pagina di richiesta.
+
+  **Criteri di Accettazione**
+  - [ ] La rotta `/archivio` esiste ed è protetta da sessione (redirect a `/auth/signin` per utenti non autenticati)
+  - [ ] La voce "Archivio" nella navbar punta a `/archivio` ed è evidenziata quando ci si trova sulla pagina
+  - [ ] I distillati sono mostrati in una griglia a due colonne (singola colonna su mobile) ordinati per `createdAt` DESC
+  - [ ] Ogni card mostra: topic, data e tono, indicatore di stato tramite bordo colorato (giallo = pending, blu = running, verde = done, rosso = error)
+  - [ ] Le card dei job DONE mostrano lo snippet del campo `result.summary` (troncato) e i contatori "N fonti — M posizioni"
+  - [ ] Le card dei job DONE sono cliccabili e portano a `/distill/[id]`
+  - [ ] I job con status RUNNING mostrano un indicatore testuale di aggiornamento automatico e la pagina fa polling ogni 5 secondi se almeno un job è RUNNING o PENDING
+  - [ ] Se non ci sono distillati, la pagina mostra un messaggio vuoto con link a `/distill` per creare il primo
+
+  ---
+
+  ## Soluzione Tecnica
+
+  La pagina `/archivio` segue il pattern già consolidato in `/distill/page.tsx`: server component per il fetch iniziale via Prisma, client component per interattività (filtri e polling). La funzione `GET /api/distill` viene estesa per includere `snippet`, `sourceCount` e `positionCount` derivati dal campo `result` JSON per i job DONE — necessario per il polling client-side dopo il caricamento iniziale.
+
+  ### File da creare
+
+  - **`src/app/archivio/page.tsx`** — server component: auth check via `getCurrentUser`, query Prisma con `result` incluso (campo JSON grezzo), calcolo snippet e contatori lato server, render `ArchiveGrid` con dati serializzati.
+  - **`src/components/distill/ArchiveCard.tsx`** — componente card newspaper-style. Prop: `id`, `topic`, `tone`, `status`, `createdAt`, `snippet`, `sourceCount`, `positionCount`. Applica la classe di stato (`np-archive-card--pending/running/done/error`) per il border-left colorato. Il link "Leggi il Distillato" è presente e cliccabile solo per i job DONE. I job RUNNING mostrano il testo "⟳ Aggiornamento automatico" nel footer.
+  - **`src/components/distill/ArchiveGrid.tsx`** — client component. Riceve `initialJobs: ArchiveJobData[]`. Mantiene lo stato jobs con `useState`. Polling con `useEffect` + `setInterval(5000)` attivo solo se almeno un job è `RUNNING` o `PENDING`; al tick fa `fetch('/api/distill')` e aggiorna lo stato. Cleanup dell'interval all'unmount. Espone filter chips (Tutti / Completati / In elaborazione / In coda / Errori) che filtrano l'array in memoria senza nuove fetch. Empty state con CTA a `/distill` se `jobs.length === 0`.
+
+  ### File da modificare
+
+  - **`src/middleware.ts`** — aggiungere `"/archivio"` all'array `PROTECTED_PATHS`.
+  - **`src/app/api/distill/route.ts`** — nella funzione `GET`, includere `result` nella query Prisma; per ogni job con `status === 'DONE'` e `result !== null`, eseguire il parse JSON in un blocco try/catch e estrarre `snippet` (primi 120 caratteri di `result.summary`, troncati con `…`), `sourceCount` (`result.sources?.length ?? null`) e `positionCount` (`result.positions?.length ?? null`). Se il parse fallisce, tutti e tre i campi restano `null` senza errore. Aggiungere i tre campi alla risposta JSON per tutti i job.
+  - **`src/components/distill/DistillForm.tsx`** — aggiungere il link `<a href="/archivio">Archivio</a>` nella sezione `np-navbar-links` del navbar.
+
+  ### Tipo condiviso
+
+  Definire `ArchiveJobData` in `src/components/distill/ArchiveCard.tsx` ed esportarlo per il riuso in `ArchiveGrid` e nella page:
+  ```ts
+  export interface ArchiveJobData {
+    id: string;
+    topic: string;
+    tone: string;
+    status: string;
+    createdAt: string;
+    snippet: string | null;
+    sourceCount: number | null;
+    positionCount: number | null;
+  }
+  ```
+
+  ### Mockup di riferimento
+
+  Il mockup `docs/mockups/news-distiller-mvp/history.html` copre fedelmente questa spec: griglia a due colonne, card con border-left colorato per stato, stamp, snippet, contatori, filter chips, empty state. Usarlo come riferimento visivo durante l'implementazione.
+
+  ### CSS
+
+  Usare le classi `np-*` del design system newspaper già in uso nell'app. Aggiungere in `globals.css` le classi specifiche per l'archivio: `np-archive-grid` (grid 2 colonne), `np-archive-card`, `np-archive-card--pending/running/done/error` (border-left colorato), `np-archive-topic`, `np-archive-meta`, `np-archive-snippet`, `np-archive-footer`, `np-filter-chip`, `np-filter-chip--active`.
+
+  ---
+
+  ## Strategia di Test
+
+  Test distribuiti su tre livelli: unit per i componenti UI, integrazione per l'endpoint esteso, e2e per i flussi utente completi. Il progetto non ha ancora un framework e2e configurato — il setup Playwright è incluso come task dedicato.
+
+  ### Test Unitari (Jest + Testing Library)
+
+  - **`ArchiveCard`**: rendering corretto per i 4 stati (classe CSS, testo del badge, presenza/assenza del link "Leggi" e dello snippet)
+  - **`ArchiveCard` DONE**: verifica che snippet troncato e contatori siano visualizzati
+  - **`ArchiveCard` RUNNING**: verifica testo "Aggiornamento automatico" presente
+  - **`ArchiveGrid` empty state**: verifica messaggio e link a `/distill` quando `initialJobs = []`
+
+  ### Test di Integrazione (Jest + Supertest / Next.js test utils)
+
+  - `GET /api/distill` senza sessione → 401
+  - `GET /api/distill` con sessione e job DONE → risposta include `snippet`, `sourceCount`, `positionCount` non nulli
+  - `GET /api/distill` con sessione e job PENDING → risposta include campi con valore `null`
+  - `GET /api/distill` con sessione e job DONE con `result` malformato → campi degradano a `null` senza errore 500
+
+  ### E2E — Simulazione Utente
+
+  **Framework:** Playwright (da installare — vedi TASK-09)
+  **Video recording:** Abilitato per tutti gli scenari, video salvati in `docs/test-results/US-020/`
+
+  | Scenario | Descrizione del flusso |
+  |---|---|
+  | Navigazione all'Archivio | Utente autenticato su `/distill`, clicca "Archivio" nel navbar, arriva su `/archivio`, vede le card con stati e metadati corretti |
+  | Filtro per stato | Su `/archivio`, clicca il chip "Completati", verifica che solo le card `status-done` siano visibili |
+  | Link al dettaglio | Su `/archivio`, clicca "Leggi il Distillato" su una card DONE, atterrra su `/distill/[id]` |
+  | Empty state | Utente autenticato senza job, arriva su `/archivio`, vede il messaggio vuoto e il link a `/distill` |
+  | Protezione rotta | Utente non autenticato visita `/archivio`, viene reindirizzato a `/auth/signin` |
+
+  ---
+
+  _Piano generato via ARchetipo Planning — 2026-06-19_
+tasks:
+  - id: TASK-01
+    title: Estendere GET /api/distill con snippet e contatori per job DONE
+    description: In src/app/api/distill/route.ts, aggiungere `result` alla query Prisma. Per ogni job DONE, parsare il JSON result in try/catch ed estrarre snippet (primi 120 char di summary con ellissi), sourceCount e positionCount. I tre campi sono null per job non DONE o se il parse fallisce. Aggiungere i campi alla risposta JSON di tutti i job.
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Proteggere la rotta /archivio nel middleware
+    description: In src/middleware.ts, aggiungere "/archivio" all'array PROTECTED_PATHS. Nessuna altra modifica.
+    type: Impl
+    status: DONE
+    ref: TASK-02
+  - id: TASK-03
+    title: Creare il componente ArchiveCard
+    description: Creare src/components/distill/ArchiveCard.tsx con interfaccia ArchiveJobData esportata. Renderizza la card newspaper-style con border-left colorato per stato, topic, meta (data, tono, contatori), snippet troncato, footer con testo polling per RUNNING e link 'Leggi' cliccabile solo per DONE.
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-03
+  - id: TASK-04
+    title: Creare il componente ArchiveGrid con filtri e polling
+    description: Creare src/components/distill/ArchiveGrid.tsx come client component. Gestisce stato jobs con useState, filter chips (Tutti/Completati/In elaborazione/In coda/Errori) che filtrano in memoria, polling via setInterval(5000) attivo solo se almeno un job è RUNNING o PENDING con cleanup all'unmount. Empty state con CTA a /distill.
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-04
+  - id: TASK-05
+    title: Creare la pagina server /archivio
+    description: 'Creare src/app/archivio/page.tsx come server component: getCurrentUser con redirect a /auth/signin se null, query Prisma con result incluso, calcolo snippet/counts lato server, serializzazione date, render ArchiveGrid con initialJobs.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-02
+      - TASK-04
+    ref: TASK-05
+  - id: TASK-06
+    title: Aggiungere link Archivio alla navbar
+    description: In src/components/distill/DistillForm.tsx, aggiungere <a href='/archivio'>Archivio</a> nella sezione np-navbar-links. Verificare che le altre pagine con navbar (distill/[id], settings) espongano ugualmente il link.
+    type: Impl
+    status: DONE
+    ref: TASK-06
+  - id: TASK-07
+    title: Test unitari ArchiveCard
+    description: 'Test Jest+Testing Library per ArchiveCard: verifica classe CSS di stato per pending/running/done/error; link ''Leggi'' presente solo per DONE; snippet e contatori visibili per DONE; testo ''Aggiornamento automatico'' presente per RUNNING; nessun link per pending/error.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-07
+  - id: TASK-08
+    title: Test di integrazione GET /api/distill esteso
+    description: 'Test integrazione per l''endpoint GET /api/distill: senza sessione → 401; con job DONE → snippet/sourceCount/positionCount presenti; con job PENDING → campi null; con result JSON malformato → campi null senza errore 500.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-08
+  - id: TASK-09
+    title: Setup Playwright con video recording
+    description: Installare @playwright/test, aggiungere script 'test:e2e' in package.json, creare playwright.config.ts con video recording abilitato (on-first-retry o always), configurare outputDir su docs/test-results/. Creare la directory docs/test-results/US-020/.
+    type: Impl
+    status: DONE
+    ref: TASK-09
+  - id: TASK-10
+    title: Test e2e pagina Archivio
+    description: 'Scenari Playwright per US-020: navigazione da /distill ad /archivio via navbar; filtro per stato; click su link ''Leggi'' da card DONE; empty state con CTA; protezione rotta utente non autenticato. Video recording abilitato, output in docs/test-results/US-020/.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-05
+      - TASK-06
+      - TASK-09
+    ref: TASK-10

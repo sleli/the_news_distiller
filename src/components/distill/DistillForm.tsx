@@ -143,6 +143,7 @@ export function DistillForm({ user, jobs = [] }: DistillFormProps) {
       <nav className="np-navbar">
         <div className="np-navbar-links">
           <a href="/distill">Nuova Richiesta</a>
+          <a href="/archivio">Archivio</a>
           <a href="/settings">Impostazioni</a>
         </div>
         <div className="np-navbar-user">

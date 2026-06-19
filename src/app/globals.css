@@ -523,6 +523,13 @@ body {
   margin-top: .25rem;
 }
 
+/* ─── ARCHIVE GRID ────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .np-archive-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* ─── STAMP ───────────────────────────────────────────────── */
 .np-stamp {
   font-family: var(--font-stamp, 'Courier New', monospace);

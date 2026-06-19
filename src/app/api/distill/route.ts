@@ -12,10 +12,38 @@ export async function GET() {
   const jobs = await prisma.distillJob.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
-    select: { id: true, topic: true, tone: true, status: true, createdAt: true },
+    select: {
+      id: true,
+      topic: true,
+      tone: true,
+      status: true,
+      createdAt: true,
+      result: true,
+      sources: { select: { id: true, position: true } },
+    },
   });
 
-  return NextResponse.json(jobs);
+  const jobsWithMeta = jobs.map((job) => {
+    if (job.status !== "DONE") {
+      return { ...job, result: undefined, sources: undefined, snippet: null, sourceCount: null, positionCount: null };
+    }
+    let snippet: string | null = null;
+    let sourceCount: number | null = null;
+    let positionCount: number | null = null;
+    try {
+      const parsed = job.result as { summary?: string } | null;
+      if (parsed?.summary) {
+        snippet = parsed.summary.length > 120 ? parsed.summary.slice(0, 120) + "…" : parsed.summary;
+      }
+    } catch {
+      // malformed JSON — fields stay null
+    }
+    sourceCount = job.sources.length;
+    positionCount = new Set(job.sources.map((s) => s.position)).size;
+    return { ...job, result: undefined, sources: undefined, snippet, sourceCount, positionCount };
+  });
+
+  return NextResponse.json(jobsWithMeta);
 }
 
 export async function POST(request: Request) {
