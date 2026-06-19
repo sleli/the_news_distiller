@@ -6,7 +6,7 @@ epic:
   title: Elaborazione Asincrona
 priority: HIGH
 points: 5
-status: TODO
+status: REVIEW
 scope: MVP
 body: |-
   #### US-010: Implementare l'elaborazione completa del job nel worker

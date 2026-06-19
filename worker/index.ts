@@ -1,13 +1,9 @@
 import { PrismaClient } from "@prisma/client";
+import { processJobFull } from "./processor";
 
 const prisma = new PrismaClient();
 
 const POLL_INTERVAL_MS = Number(process.env.WORKER_POLL_INTERVAL_MS ?? 5000);
-
-export async function handleJob(job: { id: string; topic: string; tone: string }): Promise<void> {
-  // stub — replaced by real distillation logic in subsequent specs
-  console.log(`[worker] handleJob stub — job ${job.id} (topic="${job.topic}", tone="${job.tone}")`);
-}
 
 export async function processJob(jobId: string): Promise<void> {
   const claimed = await prisma.distillJob.updateMany({
@@ -17,9 +13,7 @@ export async function processJob(jobId: string): Promise<void> {
   if (claimed.count === 0) return; // già preso da un altro worker
 
   try {
-    const job = await prisma.distillJob.findUniqueOrThrow({ where: { id: jobId } });
-    await handleJob({ id: job.id, topic: job.topic, tone: job.tone });
-    await prisma.distillJob.update({ where: { id: jobId }, data: { status: "DONE" } });
+    await processJobFull(jobId, prisma);
     console.log(`[worker] job ${jobId} → DONE`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

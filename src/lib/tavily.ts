@@ -1,4 +1,3 @@
-import "server-only";
 import { tavily } from "@tavily/core";
 
 if (!process.env.TAVILY_API_KEY) {

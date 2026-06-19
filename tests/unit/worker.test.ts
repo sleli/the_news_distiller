@@ -1,13 +1,12 @@
 const mockFindMany = jest.fn();
-const mockFindUniqueOrThrow = jest.fn();
 const mockUpdate = jest.fn();
 const mockUpdateMany = jest.fn();
+const mockProcessJobFull = jest.fn();
 
 jest.mock("@prisma/client", () => ({
   PrismaClient: jest.fn().mockImplementation(() => ({
     distillJob: {
       findMany: mockFindMany,
-      findUniqueOrThrow: mockFindUniqueOrThrow,
       update: mockUpdate,
       updateMany: mockUpdateMany,
     },
@@ -15,17 +14,21 @@ jest.mock("@prisma/client", () => ({
   })),
 }));
 
+jest.mock("../../worker/processor", () => ({
+  processJobFull: mockProcessJobFull,
+}));
+
 describe("worker/index.ts", () => {
   beforeEach(() => {
     jest.resetModules();
     mockFindMany.mockReset();
-    mockFindUniqueOrThrow.mockReset();
     mockUpdate.mockReset();
     mockUpdateMany.mockReset();
+    mockProcessJobFull.mockReset();
   });
 
   describe("pollOnce", () => {
-    it("non chiama update se non ci sono job PENDING", async () => {
+    it("non chiama updateMany se non ci sono job PENDING", async () => {
       mockFindMany.mockResolvedValueOnce([]);
 
       const { pollOnce } = await import("../../worker/index");
@@ -35,31 +38,26 @@ describe("worker/index.ts", () => {
       expect(mockUpdate).not.toHaveBeenCalled();
     });
 
-    it("elabora tutti i job PENDING trovati con transizioni RUNNING→DONE", async () => {
+    it("elabora tutti i job PENDING trovati chiamando processJobFull per ciascuno", async () => {
       mockFindMany.mockResolvedValueOnce([
-        { id: "job-1", topic: "AI", tone: "informativo" },
+        { id: "job-1", topic: "AI", tone: "neutro" },
         { id: "job-2", topic: "Sport", tone: "neutro" },
       ]);
       mockUpdateMany.mockResolvedValue({ count: 1 });
-      mockFindUniqueOrThrow
-        .mockResolvedValueOnce({ id: "job-1", topic: "AI", tone: "informativo" })
-        .mockResolvedValueOnce({ id: "job-2", topic: "Sport", tone: "neutro" });
-      mockUpdate.mockResolvedValue({});
+      mockProcessJobFull.mockResolvedValue(undefined);
 
       const { pollOnce } = await import("../../worker/index");
       await pollOnce();
 
-      // 2 job × 1 updateMany (RUNNING claim) + 2 job × 1 update (DONE) = 2 + 2
       expect(mockUpdateMany).toHaveBeenCalledTimes(2);
-      expect(mockUpdate).toHaveBeenCalledTimes(2);
+      expect(mockProcessJobFull).toHaveBeenCalledTimes(2);
     });
   });
 
   describe("processJob", () => {
-    it("transizione PENDING→RUNNING→DONE quando il claim e handleJob hanno successo", async () => {
+    it("transizione PENDING→RUNNING, chiama processJobFull, logga DONE", async () => {
       mockUpdateMany.mockResolvedValueOnce({ count: 1 });
-      mockFindUniqueOrThrow.mockResolvedValueOnce({ id: "job-1", topic: "AI", tone: "informativo" });
-      mockUpdate.mockResolvedValue({});
+      mockProcessJobFull.mockResolvedValueOnce(undefined);
 
       const { processJob } = await import("../../worker/index");
       await processJob("job-1");
@@ -68,10 +66,8 @@ describe("worker/index.ts", () => {
         where: { id: "job-1", status: "PENDING" },
         data: { status: "RUNNING" },
       });
-      expect(mockUpdate).toHaveBeenCalledWith({
-        where: { id: "job-1" },
-        data: { status: "DONE" },
-      });
+      expect(mockProcessJobFull).toHaveBeenCalledWith("job-1", expect.anything());
+      expect(mockUpdate).not.toHaveBeenCalled();
     });
 
     it("non elabora il job se updateMany non riesce a reclamarlo (count=0)", async () => {
@@ -80,13 +76,13 @@ describe("worker/index.ts", () => {
       const { processJob } = await import("../../worker/index");
       await processJob("job-taken");
 
-      expect(mockFindUniqueOrThrow).not.toHaveBeenCalled();
+      expect(mockProcessJobFull).not.toHaveBeenCalled();
       expect(mockUpdate).not.toHaveBeenCalled();
     });
 
-    it("transizione a FAILED con messaggio d'errore quando il job lookup fallisce", async () => {
+    it("transizione a FAILED con messaggio d'errore quando processJobFull lancia eccezione", async () => {
       mockUpdateMany.mockResolvedValueOnce({ count: 1 });
-      mockFindUniqueOrThrow.mockRejectedValueOnce(new Error("record non trovato"));
+      mockProcessJobFull.mockRejectedValueOnce(new Error("errore distillazione"));
       mockUpdate.mockResolvedValueOnce({});
 
       const { processJob } = await import("../../worker/index");

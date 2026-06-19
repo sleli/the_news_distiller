@@ -12,6 +12,7 @@
     "postinstall": "prisma generate && prisma db push",
     "test:e2e": "playwright test",
     "test:unit": "jest",
+    "test:integration": "jest --config jest.integration.config.ts",
     "worker": "tsx worker/index.ts"
   },
   "dependencies": {

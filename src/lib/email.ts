@@ -1,4 +1,3 @@
-import "server-only";
 import { Resend } from "resend";
 import type { DistillResult } from "./claude";
 

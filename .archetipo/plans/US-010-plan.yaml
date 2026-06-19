@@ -1,0 +1,84 @@
+schema: archetipo/plan/v2
+spec_code: US-010
+body: |-
+  # US-010: Implementare l'elaborazione completa del job nel worker — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-19
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-003 — Elaborazione Asincrona
+  **Priorità:** HIGH | **Punti:** 5
+
+  **User Story**
+  In qualità di Marco, utente che ha inviato una richiesta,
+  voglio che il sistema raccolga automaticamente articoli recenti sull'argomento e li distilli con l'AI,
+  in modo da ricevere un riassunto pluralistico senza dover fare nulla dopo il submit.
+
+  **Criteri di Accettazione**
+  - [ ] Il worker imposta status `RUNNING` sul job prima di iniziare
+  - [ ] Il worker chiama `searchArticles` con il topic del job e recupera almeno 5 articoli (fino a N configurabile, default 10)
+  - [ ] Il worker chiama `distillArticles` con gli articoli, il topic e il tono del job
+  - [ ] Il worker persiste i record `DistillSource` per ogni articolo recuperato
+  - [ ] Il worker salva l'output AI in `DistillJob.result` e imposta status `DONE`
+  - [ ] Se Tavily non restituisce articoli, il job viene impostato a `FAILED` con messaggio descrittivo
+
+  ---
+
+  ## Soluzione Tecnica
+
+  Lo stub `handleJob` in `worker/index.ts` viene sostituito da una chiamata a un nuovo modulo `worker/processor.ts` che orchestra l'intera pipeline: harvesting → distillazione → persistenza → email. Il modulo importa `searchArticles`, `distillArticles` e `sendDistillEmail` da `src/lib/` via percorsi relativi — il guard `import "server-only"` in quei moduli è inerte in un processo Node.js standalone (agisce solo durante il bundle webpack di Next.js per prevenire l'inclusione nel bundle client).
+
+  - **Harvesting:** `searchArticles(topic, N)` con N letto da `TAVILY_MAX_RESULTS` (env var, default `10`). Se l'array risultante è vuoto, viene lanciato un `Error` con messaggio `"Nessun articolo trovato per il topic: <topic>"`. Il `try/catch` in `processJob()` (già presente in `worker/index.ts`) intercetta l'errore e imposta `status: FAILED` con `result: { error: message }`.
+  - **Distillazione:** `distillArticles(articles, topic, tone as ToneKey)` dove `tone` è il valore stringa presente su `DistillJob`. L'output `DistillResult` (summary, positions, sources) viene salvato direttamente come JSON nel campo `DistillJob.result`.
+  - **Persistenza DistillSource:** Un record per ogni articolo Tavily, usando `prisma.distillSource.createMany`. Il campo `position` è il `label` della prima `DistillPosition` i cui `sourceRefs` contengono l'URL dell'articolo (confronto sottostringa); se nessuna posizione lo referenzia, viene usata la stringa `"generale"`.
+  - **Email:** Il job viene caricato con `prisma.distillJob.findUniqueOrThrow({ where: { id: jobId }, include: { user: true } })` per ottenere l'email dell'utente. Poi si chiama `sendDistillEmail(user.email, topic, result, jobId)`.
+  - **Aggiornamento finale:** `prisma.distillJob.update({ where: { id: jobId }, data: { status: "DONE", result } })` prima di inviare l'email (così il job è in DONE anche se l'email fallisce — l'email failure è non-bloccante per la persistenza).
+  - **Env vars:** `TAVILY_MAX_RESULTS` (number, default 10); `RESEND_FROM_EMAIL` e `NEXT_PUBLIC_APP_URL` già gestiti in `src/lib/email.ts`.
+
+  ---
+
+  ## Strategia di Test
+
+  Spec puramente backend — nessuna UI coinvolta. I test si concentrano sulla logica del processor, isolata da Tavily, Claude e Resend tramite mock Jest. Un integration test verifica il ciclo end-to-end su un DB SQLite in-memory via Prisma.
+
+  - **Unit test `worker/processor.ts`:** mock di `searchArticles`, `distillArticles`, `sendDistillEmail`, e PrismaClient. Copre happy path con N articoli (verifica chiamate e valori persistiti), caso 0 articoli (→ throw con messaggio atteso), caso `distillArticles` throw (→ propagazione errore).
+  - **Unit test mapping `position` in DistillSource:** articolo il cui URL compare nei `sourceRefs` di una position → `label` corretto; articolo non referenziato → `"generale"`.
+  - **Integration test ciclo completo:** crea job `PENDING` su SQLite in-memory, mocka solo le chiamate API esterne (Tavily, Claude, Resend con dati fixture), esegue `pollOnce()`, verifica `status === "DONE"`, `result` non null, e numero corretto di `DistillSource` nel DB.
+
+  _Piano generato via ARchetipo Planning — 2026-06-19_
+tasks:
+  - id: TASK-01
+    title: Creare worker/processor.ts con la pipeline completa di elaborazione
+    description: 'Implementa `processJobFull(jobId: string, prisma: PrismaClient): Promise<void>` che: (1) carica il job con include user, (2) chiama searchArticles(topic, N) con N da env TAVILY_MAX_RESULTS (default 10), (3) lancia Error se articles.length === 0, (4) chiama distillArticles(articles, topic, tone as ToneKey), (5) aggiorna DistillJob con status DONE e result, (6) persiste DistillSource con createMany (position mappata da sourceRefs di Claude con fallback ''generale''), (7) chiama sendDistillEmail. Importa da ../src/lib/tavily, ../src/lib/claude, ../src/lib/email via percorsi relativi.'
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: 'Aggiornare worker/index.ts: sostituire handleJob stub con processJobFull'
+    description: Importa processJobFull da ./processor. Rimuove il corpo stub di handleJob e aggiorna processJob() per chiamare direttamente processJobFull(jobId, prisma) invece di handleJob. Aggiunge lettura di TAVILY_MAX_RESULTS dall'env (già passato internamente al processor). La struttura di polling e shutdown rimane invariata.
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Unit test per worker/processor.ts — happy path e casi di errore
+    description: 'Mock di searchArticles, distillArticles, sendDistillEmail e PrismaClient tramite jest.mock. Casi coperti: (1) happy path: verifica che createMany riceva il numero corretto di DistillSource con position corretta, result salvato, email inviata; (2) searchArticles ritorna [] → processJobFull lancia Error con messaggio che contiene il topic; (3) distillArticles throws → errore propagato; (4) mapping position: articolo con URL in sourceRefs → label della position, articolo non referenziato → ''generale''.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-03
+  - id: TASK-04
+    title: 'Integration test: ciclo completo pollOnce → processJob → DONE su DB in-memory'
+    description: Configura Prisma con SQLite in-memory (DATABASE_URL=file::memory:?cache=shared), crea seed con User + DistillJob PENDING, mocka searchArticles/distillArticles/sendDistillEmail con fixture, chiama pollOnce(), verifica tramite prisma.distillJob.findUnique che status sia DONE, result non null, e prisma.distillSource.count sia uguale al numero di articoli fixture.
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-02
+      - TASK-03
+    ref: TASK-04
