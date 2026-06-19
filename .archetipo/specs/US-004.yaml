@@ -6,7 +6,7 @@ epic:
   title: Fondamenta e Infrastruttura Asincrona
 priority: HIGH
 points: 3
-status: TODO
+status: REVIEW
 scope: MVP
 body: |-
   #### US-004: Implementare il client Claude con prompt strutturato e toni parametrizzati

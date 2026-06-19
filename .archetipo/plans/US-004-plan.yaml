@@ -1,0 +1,213 @@
+schema: archetipo/plan/v2
+spec_code: US-004
+body: |-
+  # US-004: Implementare il client Claude con prompt strutturato e toni parametrizzati — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-18
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-001 — Fondamenta e Infrastruttura Asincrona
+  **Priorità:** HIGH | **Punti:** 3
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio un client Claude in `src/lib/claude.ts` e un file `src/lib/tones.ts` con le costanti dei toni,
+  in modo da produrre distillati strutturati in modalità diverse (neutro, analitico, divulgativo, critico).
+
+  **Criteri di Accettazione**
+  - [ ] `distillArticles(articles, topic, tone)` restituisce `{ summary: string, positions: Array<{label, headline, body, sourceRefs}>, sources: Array<{title, url}> }`
+  - [ ] `tones.ts` esporta le costanti per i 4 toni (neutro, analitico, divulgativo, critico), ciascuna con le istruzioni di prompt corrispondenti
+  - [ ] Il parametro tono modifica le istruzioni nel prompt senza cambiare lo schema dell'output
+  - [ ] `ANTHROPIC_API_KEY` è letta esclusivamente da variabili d'ambiente server-side
+
+  ---
+
+  ## Soluzione Tecnica
+
+  ### Estensione di `tones.ts`
+
+  Il file esiste già con `VALID_TONES`, `ToneKey` e `isValidTone`. Va aggiunta la mappa `TONE_INSTRUCTIONS: Record<ToneKey, string>` che associa a ciascun tono le istruzioni testuali da iniettare nel system prompt. L'export esistente rimane invariato — nessun breaking change.
+
+  ```typescript
+  export const TONE_INSTRUCTIONS: Record<ToneKey, string> = {
+    neutro: "Presenta le posizioni in modo equidistante senza esprimere giudizi. Usa linguaggio descrittivo e oggettivo.",
+    analitico: "Scomponi ogni posizione evidenziando le premesse logiche, le prove citate e le implicazioni. Usa linguaggio preciso e tecnico.",
+    divulgativo: "Spiega le posizioni in modo accessibile a un lettore non esperto. Usa analogie e linguaggio semplice senza perdere completezza.",
+    critico: "Evidenzia le contraddizioni interne, le debolezze argomentative e i bias presenti in ciascuna posizione. Sii diretto ma imparziale.",
+  };
+  ```
+
+  ### Implementazione di `claude.ts`
+
+  Wrapper server-side attorno a `@anthropic-ai/sdk`. La strategia di output strutturato usa il **forced tool use**: viene definito uno strumento `extract_distillation` con JSON Schema dell'output atteso, e la chiamata imposta `tool_choice: { type: "tool", name: "extract_distillation" }`. Questo garantisce che il modello emetta sempre un `tool_use` block con JSON valido — nessun parsing fragile di testo libero.
+
+  **Modello:** `claude-sonnet-4-6` — bilanciamento ottimale tra qualità del ragionamento e latenza per questa task di distillazione.
+
+  ```typescript
+  import "server-only";
+  import Anthropic from "@anthropic-ai/sdk";
+  import { TavilyArticle } from "./tavily";
+  import { ToneKey, TONE_INSTRUCTIONS } from "./tones";
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error("ANTHROPIC_API_KEY non configurata.");
+  }
+
+  const client = new Anthropic();
+
+  export type DistillPosition = {
+    label: string;
+    headline: string;
+    body: string;
+    sourceRefs: string[];
+  };
+
+  export type DistillSource = {
+    title: string;
+    url: string;
+  };
+
+  export type DistillResult = {
+    summary: string;
+    positions: DistillPosition[];
+    sources: DistillSource[];
+  };
+
+  const DISTILL_TOOL: Anthropic.Tool = {
+    name: "extract_distillation",
+    description: "Estrai il distillato strutturato dagli articoli forniti.",
+    input_schema: {
+      type: "object",
+      properties: {
+        summary: { type: "string" },
+        positions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              label: { type: "string" },
+              headline: { type: "string" },
+              body: { type: "string" },
+              sourceRefs: { type: "array", items: { type: "string" } },
+            },
+            required: ["label", "headline", "body", "sourceRefs"],
+          },
+        },
+        sources: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              url: { type: "string" },
+            },
+            required: ["title", "url"],
+          },
+        },
+      },
+      required: ["summary", "positions", "sources"],
+    },
+  };
+
+  export async function distillArticles(
+    articles: TavilyArticle[],
+    topic: string,
+    tone: ToneKey
+  ): Promise<DistillResult> {
+    const toneInstruction = TONE_INSTRUCTIONS[tone];
+    const articlesText = articles
+      .map((a, i) => `[${i + 1}] ${a.title}\n${a.url}\n${a.content}`)
+      .join("\n\n---\n\n");
+
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 4096,
+      tools: [DISTILL_TOOL],
+      tool_choice: { type: "tool", name: "extract_distillation" },
+      system: `Sei un analista di notizie. ${toneInstruction} Rispondi sempre usando lo strumento extract_distillation.`,
+      messages: [
+        {
+          role: "user",
+          content: `Argomento: ${topic}\n\nArticoli:\n${articlesText}`,
+        },
+      ],
+    });
+
+    const toolUse = response.content.find((b) => b.type === "tool_use");
+    if (!toolUse || toolUse.type !== "tool_use") {
+      throw new Error("Claude non ha restituito un tool_use block.");
+    }
+    return toolUse.input as DistillResult;
+  }
+  ```
+
+  ### Decisioni architetturali
+
+  - **Forced tool use vs. structured output beta**: tool use è l'approccio stabile e documentato nell'SDK corrente; la beta `structured_output` non è ancora GA e richiederebbe un prefill manuale.
+  - **Guard a livello di modulo su `ANTHROPIC_API_KEY`**: coerente con il pattern di `tavily.ts` già in REVIEW — fail-fast all'import.
+  - **`server-only`**: il file è un client server-side, la direttiva impedisce l'import accidentale nel bundle client.
+  - **`sourceRefs` come array di stringhe**: flessibile — il modello può referenziare gli articoli con il numero `[1]`, `[2]`, o con l'URL diretto.
+
+  ---
+
+  ## Strategia di Test
+
+  Nessuna UI coinvolta — strategia esclusivamente unit con Jest + ts-jest (già configurato da US-003).
+
+  - **TASK-05 — Happy path:** mock di `@anthropic-ai/sdk` che restituisce un `tool_use` block con payload valido → verifica che `distillArticles` ritorni `{ summary, positions, sources }` con la struttura corretta.
+  - **TASK-05 — Parametrizzazione tono:** verifica che il system prompt inviato a Claude contenga l'istruzione corrispondente al tono richiesto (spy su `client.messages.create`).
+  - **TASK-05 — Chiave mancante:** `jest.resetModules()` + `delete process.env.ANTHROPIC_API_KEY` → verifica che l'import del modulo lanci un errore descrittivo.
+  - **TASK-05 — Tool use assente:** mock che restituisce un content block di tipo `text` invece di `tool_use` → verifica che `distillArticles` lanci `Error("Claude non ha restituito un tool_use block.")`.
+  - **TASK-06 — tones.ts:** verifica che `TONE_INSTRUCTIONS` contenga le 4 chiavi attese e che ogni valore sia una stringa non vuota.
+
+  ---
+
+  _Piano generato tramite ARchetipo Planning — 2026-06-18_
+tasks:
+  - id: TASK-01
+    title: Installare @anthropic-ai/sdk
+    description: Aggiungere `@anthropic-ai/sdk` alle dipendenze del progetto con `npm install @anthropic-ai/sdk`. Verificare che il pacchetto sia presente in `package.json`.
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Estendere src/lib/tones.ts con TONE_INSTRUCTIONS
+    description: 'Aggiungere la mappa `TONE_INSTRUCTIONS: Record<ToneKey, string>` al file esistente `src/lib/tones.ts`. Ciascuna delle 4 chiavi (neutro, analitico, divulgativo, critico) deve contenere le istruzioni di prompt corrispondenti. Gli export esistenti (`VALID_TONES`, `ToneKey`, `isValidTone`) rimangono invariati.'
+    type: Impl
+    status: DONE
+    ref: TASK-02
+  - id: TASK-03
+    title: Implementare src/lib/claude.ts
+    description: 'Creare il file `src/lib/claude.ts` con: direttiva `import "server-only"`, guard a livello di modulo su `ANTHROPIC_API_KEY`, inizializzazione del client Anthropic, tipi esportati `DistillPosition`, `DistillSource`, `DistillResult`, definizione dello strumento `DISTILL_TOOL` con JSON Schema, e funzione `distillArticles(articles, topic, tone)` che usa forced tool use (`tool_choice: { type: ''tool'', name: ''extract_distillation'' }`) con il modello `claude-sonnet-4-6`.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+      - TASK-02
+    ref: TASK-03
+  - id: TASK-04
+    title: Documentare ANTHROPIC_API_KEY in .env.example
+    description: Aggiungere `ANTHROPIC_API_KEY=` a `.env.example` (crearlo se non esiste) con un commento che indica dove ottenere la chiave API (console.anthropic.com).
+    type: Impl
+    status: DONE
+    ref: TASK-04
+  - id: TASK-05
+    title: Scrivere unit test per src/lib/claude.ts
+    description: 'Creare `tests/unit/claude.test.ts` con 4 test: (1) happy path — mock SDK che restituisce tool_use block valido, verifica struttura DistillResult; (2) parametrizzazione tono — spy su `client.messages.create`, verifica che il system prompt contenga l''istruzione del tono richiesto; (3) chiave mancante — `jest.resetModules()` + `delete process.env.ANTHROPIC_API_KEY`, verifica throw all''import; (4) tool use assente — mock che restituisce content di tipo `text`, verifica throw con messaggio atteso.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-05
+  - id: TASK-06
+    title: Scrivere unit test per TONE_INSTRUCTIONS in tones.ts
+    description: 'Aggiungere o creare `tests/unit/tones.test.ts` con test che verificano: (1) `TONE_INSTRUCTIONS` contiene le 4 chiavi attese (neutro, analitico, divulgativo, critico); (2) ogni valore è una stringa non vuota; (3) `isValidTone` ritorna false per valori non nel set.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-06
