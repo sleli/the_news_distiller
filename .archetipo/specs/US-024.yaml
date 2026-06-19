@@ -6,7 +6,7 @@ epic:
   title: Elaborazione Asincrona
 priority: LOW
 points: 1
-status: TODO
+status: REVIEW
 body: |-
   #### US-024: Mostrare il messaggio di errore specifico nella pagina di dettaglio per i job FAILED
 

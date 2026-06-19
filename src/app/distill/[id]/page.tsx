@@ -66,7 +66,7 @@ export default async function DistillJobPage({ params }: Props) {
           />
         ) : (
           <>
-            <JobStatusView job={job} displayName={displayName} />
+            <JobStatusView job={{ ...job, result: job.result }} displayName={displayName} />
             <JobStatusPoller jobId={job.id} topic={job.topic} initialStatus={job.status} />
           </>
         )}
@@ -146,12 +146,26 @@ function PageFooter() {
   );
 }
 
+export function getErrorMessage(result: unknown): string | null {
+  if (
+    result !== null &&
+    typeof result === "object" &&
+    "error" in result &&
+    typeof (result as Record<string, unknown>).error === "string" &&
+    (result as Record<string, unknown>).error !== ""
+  ) {
+    return (result as Record<string, unknown>).error as string;
+  }
+  return null;
+}
+
 interface JobStatusViewProps {
   job: {
     id: string;
     topic: string;
     tone: string;
     status: string;
+    result: unknown;
   };
   displayName: string;
 }
@@ -159,6 +173,7 @@ interface JobStatusViewProps {
 function JobStatusView({ job, displayName }: JobStatusViewProps) {
   const statusLabel = getStatusLabel(job.status);
   const isFailed = job.status === "FAILED";
+  const errorMessage = isFailed ? getErrorMessage(job.result) : null;
 
   return (
     <>
@@ -246,9 +261,16 @@ function JobStatusView({ job, displayName }: JobStatusViewProps) {
         <div className="np-col">
           <div className="np-sidebar-label">Note dalla Redazione</div>
           {isFailed ? (
-            <div className="np-sidebar-tip">
-              <strong>Errore di elaborazione:</strong> Il Distillatore non è riuscito a completare l&apos;analisi. Puoi provare a inviare una nuova richiesta.
-            </div>
+            <>
+              <div className="np-sidebar-tip">
+                <strong>Errore di elaborazione:</strong> Il Distillatore non è riuscito a completare l&apos;analisi. Puoi provare a inviare una nuova richiesta.
+              </div>
+              {errorMessage !== null && (
+                <div className="np-sidebar-tip" data-testid="error-detail">
+                  <strong>Dettaglio errore:</strong> {errorMessage}
+                </div>
+              )}
+            </>
           ) : (
             <>
               <div className="np-sidebar-tip">

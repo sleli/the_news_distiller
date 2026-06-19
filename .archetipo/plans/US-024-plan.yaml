@@ -1,0 +1,89 @@
+schema: archetipo/plan/v2
+spec_code: US-024
+body: |-
+  # US-024: Mostrare il messaggio di errore specifico nella pagina di dettaglio per i job FAILED — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-19
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-003 — Elaborazione Asincrona
+  **Priorità:** LOW | **Punti:** 1
+
+  **User Story**
+  In qualità di utente, voglio leggere un messaggio che spieghi perché la mia distillazione è fallita, in modo da capire cosa è andato storto e decidere come procedere (riprovare, modificare il topic, ecc.).
+
+  **Criteri di Accettazione**
+  - Nella pagina `/distill/[id]`, se `job.status === 'FAILED'` e `job.result` contiene un campo `error` non vuoto, il messaggio viene mostrato nel box laterale "Note dalla Redazione"
+  - Il messaggio appare sotto l'etichetta "Dettaglio errore" in stile coerente con il design newspaper esistente
+  - Se `job.result` è null oppure non contiene il campo `error`, il box mostra il testo generico già esistente ("Il Distillatore non è riuscito a completare l'analisi")
+  - Il campo `result` del job è incluso nella query Prisma della pagina di dettaglio (già presente — nessuna modifica API necessaria)
+
+  ---
+
+  ## Soluzione Tecnica
+
+  La modifica è interamente circoscritta al componente `JobStatusView` in `src/app/distill/[id]/page.tsx`. Il campo `result` è già caricato dalla query `prisma.distillJob.findUnique` con `include: { sources: true }` — nessuna modifica al layer dati o API è necessaria.
+
+  - **Estendere `JobStatusViewProps`**: aggiungere il campo `result: unknown` (tipo Prisma `Json?`) all'interfaccia del componente; il componente padre `DistillJobPage` già dispone del valore.
+  - **Helper di type-narrowing**: implementare una piccola funzione `getErrorMessage(result: unknown): string | null` che verifica la forma `{ error: string }` in modo type-safe prima di accedere al campo, restituendo `null` se il campo è assente/vuoto.
+  - **Rendering condizionale nel box laterale**: nel ramo `isFailed`, dopo il `np-sidebar-tip` esistente con "Errore di elaborazione", aggiungere un secondo `np-sidebar-tip` con etichetta "Dettaglio errore" e `data-testid="error-detail"` solo se `getErrorMessage(result)` restituisce un valore non null.
+  - **Nessuna modifica a `DistillResultView`**, a `JobStatusPoller`, alle route API, o allo schema Prisma.
+
+  ---
+
+  ## Strategia di Test
+
+  Spec a basso rischio con logica di rendering condizionale — la copertura prioritaria è la funzione di narrowing e i tre stati visivi (errore presente, result null, result senza campo error).
+
+  - **Unit test** (`tests/unit/distill-detail-error.test.ts`): testare `getErrorMessage` in isolamento per i tre casi: `result` con `{ error: "messaggio" }`, `result` null, `result` senza campo `error`.
+  - **E2E test** (`tests/e2e/distill-detail-error.spec.ts`): uno scenario demo con video recording che simula un utente autenticato che apre la pagina di dettaglio di un job FAILED con `result.error` valorizzato e verifica la visibilità del `data-testid="error-detail"`; un secondo scenario verifica che il fallback generico sia visibile quando `result` è null.
+
+  ### Test E2E — Simulazione Utente
+
+  **Framework:** Playwright (già configurato in `playwright.config.ts`)
+  **Video recording:** Abilitato per tutti gli scenari E2E di questa spec (via `test.use({ video: 'on' })`)
+  **Output video:** `docs/test-results/US-024/`
+
+  | Scenario | Descrizione del flusso utente |
+  |---|---|
+  | 1 — Errore specifico visibile | L'utente autenticato apre `/distill/[id]` con job FAILED e `result.error` valorizzato → vede il box "Dettaglio errore" con il messaggio specifico |
+  | 2 — Fallback generico | L'utente autenticato apre `/distill/[id]` con job FAILED e `result` null → vede solo il testo generico "Il Distillatore non è riuscito a completare l'analisi" senza box "Dettaglio errore" |
+
+  ---
+
+  _Piano generato via ARchetipo Planning — 2026-06-19_
+tasks:
+  - id: TASK-01
+    title: Estrarre getErrorMessage() e aggiornare JobStatusViewProps in page.tsx
+    description: 'In `src/app/distill/[id]/page.tsx`: (1) aggiungere il campo `result: unknown` all''interfaccia `JobStatusViewProps`; (2) implementare `function getErrorMessage(result: unknown): string | null` che verifica la forma `result !== null && typeof result === ''object'' && ''error'' in result && typeof (result as Record<string, unknown>).error === ''string'' && (result as Record<string, unknown>).error !== ''''`; (3) passare `result={job.result}` dal componente padre `DistillJobPage` a `JobStatusView`.'
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Aggiungere rendering condizionale del dettaglio errore nel box laterale
+    description: 'In `JobStatusView`, nel ramo `isFailed` del box "Note dalla Redazione": chiamare `getErrorMessage(result)` e, se il valore è non-null, aggiungere un secondo `<div className="np-sidebar-tip">` con etichetta `<strong>Dettaglio errore:</strong>`, `data-testid="error-detail"`, e il messaggio di errore come testo. Il `np-sidebar-tip` esistente con "Errore di elaborazione" rimane invariato e funge da testo introduttivo generico.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: 'Unit test: getErrorMessage() per i tre casi di input'
+    description: 'Creare `tests/unit/distill-detail-error.test.ts`. Testare `getErrorMessage` con: (1) `{ error: ''Nessun articolo trovato'' }` → restituisce la stringa; (2) `null` → restituisce `null`; (3) `{ summary: ''qualcosa'' }` (oggetto senza campo error) → restituisce `null`; (4) `{ error: '''' }` (stringa vuota) → restituisce `null`. La funzione va esportata da `src/app/distill/[id]/page.tsx` con `export` per consentire il test unitario diretto.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-03
+  - id: TASK-04
+    title: 'E2E test: pagina dettaglio job FAILED con errore specifico e fallback'
+    description: 'Creare `tests/e2e/distill-detail-error.spec.ts` con `test.use({ video: ''on'', viewport: { width: 1280, height: 720 } })`. Scenario 1 (demo): utente autenticato crea un job, lo imposta a FAILED con `result: { error: ''Nessun articolo trovato per il topic X'' }` via `prisma.$executeRaw` o API di test, naviga su `/distill/[id]`, verifica `getByTestId(''error-detail'')` visibile con testo del messaggio. Scenario 2: job FAILED con `result: null`, verifica che `error-detail` non sia visibile e che il testo generico nel `np-sidebar-tip` sia presente.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-04
