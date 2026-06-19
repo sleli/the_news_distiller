@@ -1,0 +1,29 @@
+schema: archetipo/spec/v2
+code: US-019
+title: Adattare il client Claude per supportare la modalità subprocess CLI
+epic:
+  code: EP-005
+  title: Configurazione e Personalizzazione
+priority: HIGH
+points: 3
+status: REVIEW
+body: |-
+  #### US-019: Adattare il client Claude per supportare la modalità subprocess CLI
+
+  **Epic:** EP-005 | **Priorità:** HIGH | **Punti:** 3 | **Stato:** TODO
+  **Bloccato da:** US-017
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio che `src/lib/claude.ts` legga la configurazione da `AppSettings` e, se la modalità è `CLI_SUBPROCESS`, invochi `claude -p` come processo figlio invece di chiamare l'SDK Anthropic,
+  in modo da rispettare la scelta configurata dall'utente senza modificare il resto della pipeline.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, con `claudeMode` impostato a `CLI_SUBPROCESS`, il worker elabora un job chiamando `claude -p` via `child_process` e persiste il risultato identico a quello prodotto dalla modalità SDK; con `claudeMode: API_KEY` il comportamento pre-esistente rimane invariato.
+
+  **Criteri di Accettazione**
+  - [ ] `distillArticles` legge `AppSettings.claudeMode` prima di scegliere il backend
+  - [ ] In modalità `API_KEY`, il comportamento è identico all'implementazione esistente (US-004)
+  - [ ] In modalità `CLI_SUBPROCESS`, il prompt è passato a `claude -p` via stdin; l'output stdout è parsato come JSON con lo stesso schema atteso
+  - [ ] Se `claude` non è presente nel PATH in modalità `CLI_SUBPROCESS`, la funzione lancia un errore descrittivo
+  - [ ] I test unitari di `claude.ts` coprono entrambe le modalità con mock di `child_process.spawn` e dell'SDK

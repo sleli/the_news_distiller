@@ -1,0 +1,100 @@
+schema: archetipo/plan/v2
+spec_code: US-019
+body: |-
+  # US-019: Adattare il client Claude per supportare la modalità subprocess CLI — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-19
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-005 — Configurazione e Personalizzazione
+  **Priorità:** HIGH | **Punti:** 3
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio che `src/lib/claude.ts` legga la configurazione da `AppSettings` e, se la modalità è `CLI_SUBPROCESS`, invochi `claude -p` come processo figlio invece di chiamare l'SDK Anthropic,
+  in modo da rispettare la scelta configurata dall'utente senza modificare il resto della pipeline.
+
+  **Criteri di Accettazione**
+  - `distillArticles` legge `AppSettings.claudeMode` prima di scegliere il backend
+  - In modalità `API_KEY`, il comportamento è identico all'implementazione esistente
+  - In modalità `CLI_SUBPROCESS`, il prompt è passato a `claude -p` via stdin; l'output stdout è parsato come JSON con lo stesso schema atteso
+  - Se `claude` non è presente nel PATH in modalità `CLI_SUBPROCESS`, la funzione lancia un errore descrittivo
+  - I test unitari di `claude.ts` coprono entrambe le modalità con mock di `child_process.spawn` e dell'SDK
+
+  ---
+
+  ## Soluzione Tecnica
+
+  Si refactorizza `src/lib/claude.ts` separando la costruzione del prompt dal dispatch al backend; il client Anthropic diventa lazy per non bloccare la modalità CLI.
+
+  - **Implicazione critica:** Il check `ANTHROPIC_API_KEY` e l'inizializzazione `const client = new Anthropic(...)` sono attualmente a livello di modulo (righe 4-10 di claude.ts) e lanciano all'import se la chiave è assente. Vanno spostati dentro una funzione `getAnthropicClient()` lazy chiamata solo nel branch SDK — altrimenti la modalità CLI_SUBPROCESS sarebbe bloccata dall'assenza della chiave API.
+  - **Estrazione prompt builder:** `buildDistillPrompt(articles, topic, tone): { systemPrompt: string; userMessage: string; toolDef: Anthropic.Tool }` — funzione pura esportata, nessuna dipendenza esterna, testabile in isolamento.
+  - **Modalità CLI subprocess:** `distillViaCLI(systemPrompt, userMessage)` usa `child_process.spawn('claude', ['-p'])`, scrive `userMessage` su stdin (con il systemPrompt come prefisso), raccoglie stdout e lo parsa con `JSON.parse` + `validateDistillResult`. Lancia `ClaudeCliNotFoundError` se spawn fallisce con codice `ENOENT`.
+  - **Dispatch in distillArticles:** Legge `prisma.appSettings.findUnique({ where: { id: 'default' } })` — se assente usa `API_KEY` come default. Poi delega a `distillViaCLI` o alla chiamata SDK esistente.
+  - Il path CLI_SUBPROCESS riusa `validateDistillResult` invariata — nessuna modifica all'interfaccia `DistillResult`.
+
+  ---
+
+  ## Strategia di Test
+
+  Test unitari Jest con mock di `child_process.spawn`, del modulo Anthropic SDK, e di `prisma.appSettings.findUnique` per isolare i due percorsi di esecuzione.
+
+  - Test modalità `API_KEY`: mock `appSettings` → `{ claudeMode: 'API_KEY' }`; verifica che `client.messages.create` sia chiamato e il risultato sia un `DistillResult` valido.
+  - Test modalità `CLI_SUBPROCESS`: mock `spawn` → stdout JSON valido; mock `appSettings` → `{ claudeMode: 'CLI_SUBPROCESS' }`; verifica che l'SDK non sia chiamato e il risultato sia un `DistillResult` valido.
+  - Test errore CLI: mock `spawn` → emette errore ENOENT; verifica che `distillViaCLI` lanci un errore descrittivo.
+  - Test default (AppSettings assente): mock `appSettings` → `null`; verifica fallback a modalità `API_KEY`.
+
+  ---
+
+  _Piano generato tramite ARchetipo Planning — 2026-06-19_
+tasks:
+  - id: TASK-01
+    title: Rendere lazy l'inizializzazione del client Anthropic
+    description: Spostare il check ANTHROPIC_API_KEY e la creazione del client Anthropic (attualmente a livello di modulo in claude.ts righe 4-10) dentro una funzione getAnthropicClient() chiamata solo nel branch SDK. Impedisce il crash all'import in modalità CLI_SUBPROCESS.
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Estrarre buildDistillPrompt come funzione pura esportata
+    description: 'Separare la logica di costruzione del systemPrompt e userMessage in buildDistillPrompt(articles, topic, tone): { systemPrompt, userMessage, toolDef }. Nessun side effect, nessuna dipendenza esterna. Semplifica il testing e il riuso.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Implementare distillViaCLI con child_process.spawn
+    description: 'Nuova funzione distillViaCLI(systemPrompt, userMessage): Promise<DistillResult> che invoca `claude -p` come subprocess, passa il prompt via stdin, raccoglie stdout e lo parsa con validateDistillResult. Lancia ClaudeCliNotFoundError con messaggio esplicito se spawn fallisce con ENOENT.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-03
+  - id: TASK-04
+    title: Modificare distillArticles per leggere AppSettings e fare dispatch
+    description: 'All''inizio di distillArticles leggere prisma.appSettings.findUnique({ where: { id: ''default'' } }). Usare claudeMode (default ''API_KEY'' se record assente) per scegliere il backend. Delegare a distillViaCLI o alla chiamata SDK esistente.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-04
+  - id: TASK-05
+    title: Test unitario modalità API_KEY
+    description: Mock di appSettings con claudeMode='API_KEY' e mock del SDK Anthropic. Verificare che client.messages.create sia chiamato con i parametri corretti e che il risultato sia un DistillResult valido. Verifica anche il fallback quando AppSettings è null.
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-04
+    ref: TASK-05
+  - id: TASK-06
+    title: Test unitario modalità CLI_SUBPROCESS e errore PATH
+    description: '(1) Mock spawn → stdout JSON valido + appSettings CLI_SUBPROCESS: verifica risultato DistillResult e nessuna chiamata SDK. (2) Mock spawn → ENOENT: verifica lancio ClaudeCliNotFoundError con messaggio descrittivo.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-06

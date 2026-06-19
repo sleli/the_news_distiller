@@ -1,13 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { spawn } from "child_process";
 import { ToneKey, TONE_INSTRUCTIONS } from "./tones";
-
-if (!process.env.ANTHROPIC_API_KEY) {
-  throw new Error(
-    "ANTHROPIC_API_KEY non configurata. Aggiungi la variabile d'ambiente server-side prima di usare questo modulo."
-  );
-}
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+import { prisma } from "./prisma";
 
 export type ArticleInput = {
   title: string;
@@ -32,6 +26,21 @@ export type DistillResult = {
   positions: DistillPosition[];
   sources: DistillSource[];
 };
+
+// TASK-01: lazy initialization — avoids crash at import when ANTHROPIC_API_KEY is absent (CLI_SUBPROCESS mode)
+let _anthropicClient: Anthropic | null = null;
+
+function getAnthropicClient(): Anthropic {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error(
+      "ANTHROPIC_API_KEY non configurata. Aggiungi la variabile d'ambiente server-side prima di usare questo modulo."
+    );
+  }
+  if (!_anthropicClient) {
+    _anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  }
+  return _anthropicClient;
+}
 
 const DISTILL_TOOL: Anthropic.Tool = {
   name: "extract_distillation",
@@ -79,28 +88,119 @@ const DISTILL_TOOL: Anthropic.Tool = {
   },
 };
 
+// TASK-02: pure exported function — no side effects, no external dependencies
+export function buildDistillPrompt(
+  articles: ArticleInput[],
+  topic: string,
+  tone: ToneKey
+): { systemPrompt: string; userMessage: string; toolDef: Anthropic.Tool } {
+  const toneInstruction = TONE_INSTRUCTIONS[tone];
+  const articlesText = articles
+    .map((a, i) => `[${i + 1}] ${a.title}\n${a.url}\n${a.content}`)
+    .join("\n\n---\n\n");
+
+  return {
+    systemPrompt: `Sei un distillatore di notizie. ${toneInstruction}`,
+    userMessage: `Analizza questi articoli sul topic "${topic}" e produci una distillazione strutturata.\n\n${articlesText}`,
+    toolDef: DISTILL_TOOL,
+  };
+}
+
+// TASK-03: CLI subprocess backend
+export class ClaudeCliNotFoundError extends Error {
+  constructor() {
+    super(
+      "Comando `claude` non trovato nel PATH. Installa Claude Code CLI per usare la modalità CLI_SUBPROCESS."
+    );
+    this.name = "ClaudeCliNotFoundError";
+  }
+}
+
+export async function distillViaCLI(
+  systemPrompt: string,
+  userMessage: string
+): Promise<DistillResult> {
+  const jsonSchemaHint = `{"summary":"stringa","positions":[{"label":"stringa","headline":"stringa","body":"stringa","sourceRefs":["stringa"]}],"sources":[{"title":"stringa","url":"stringa"}]}`;
+  const fullPrompt =
+    `${systemPrompt}\n\n${userMessage}\n\n` +
+    `Rispondi ESCLUSIVAMENTE con un oggetto JSON valido corrispondente a questo schema (nessun testo aggiuntivo, nessun markdown, nessun blocco di codice):\n${jsonSchemaHint}`;
+
+  return new Promise((resolve, reject) => {
+    const proc = spawn("claude", ["-p"], { stdio: ["pipe", "pipe", "pipe"] });
+
+    proc.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "ENOENT") {
+        reject(new ClaudeCliNotFoundError());
+      } else {
+        reject(err);
+      }
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    proc.stdout?.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    proc.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+
+    proc.on("close", (code: number | null) => {
+      if (code !== 0) {
+        reject(
+          new Error(
+            `claude -p ha terminato con codice ${code}${stderr ? `: ${stderr.trim()}` : ""}`
+          )
+        );
+        return;
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(stdout.trim());
+      } catch {
+        reject(
+          new Error(
+            `Impossibile parsare l'output di claude -p come JSON: ${stdout.substring(0, 200)}`
+          )
+        );
+        return;
+      }
+      try {
+        resolve(validateDistillResult(parsed));
+      } catch (err) {
+        reject(err);
+      }
+    });
+
+    proc.stdin?.write(fullPrompt);
+    proc.stdin?.end();
+  });
+}
+
+// TASK-04: dispatch based on AppSettings.claudeMode
 export async function distillArticles(
   articles: ArticleInput[],
   topic: string,
   tone: ToneKey
 ): Promise<DistillResult> {
-  const toneInstruction = TONE_INSTRUCTIONS[tone];
+  const settings = await prisma.appSettings.findUnique({ where: { id: "default" } });
+  const claudeMode = settings?.claudeMode ?? "API_KEY";
 
-  const articlesText = articles
-    .map((a, i) => `[${i + 1}] ${a.title}\n${a.url}\n${a.content}`)
-    .join("\n\n---\n\n");
+  const { systemPrompt, userMessage, toolDef } = buildDistillPrompt(articles, topic, tone);
 
+  if (claudeMode === "CLI_SUBPROCESS") {
+    return distillViaCLI(systemPrompt, userMessage);
+  }
+
+  // API_KEY branch — original behavior
+  const client = getAnthropicClient();
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 4096,
-    system: `Sei un distillatore di notizie. ${toneInstruction}`,
-    messages: [
-      {
-        role: "user",
-        content: `Analizza questi articoli sul topic "${topic}" e produci una distillazione strutturata.\n\n${articlesText}`,
-      },
-    ],
-    tools: [DISTILL_TOOL],
+    system: systemPrompt,
+    messages: [{ role: "user", content: userMessage }],
+    tools: [toolDef],
     tool_choice: { type: "tool", name: "extract_distillation" },
   });
 
