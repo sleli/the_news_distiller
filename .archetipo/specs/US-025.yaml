@@ -6,7 +6,7 @@ epic:
   title: Richiesta Distillato
 priority: MEDIUM
 points: 1
-status: TODO
+status: REVIEW
 body: |-
   #### US-025: Migliorare la query Tavily per "Argomento del giorno" con una formulazione inglese orientata alla rilevanza
 

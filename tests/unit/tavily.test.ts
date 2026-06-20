@@ -66,4 +66,45 @@ describe("src/lib/tavily.ts", () => {
     expect(results[0].content).toBe("");
     expect(results[1].content).toBe("");
   });
+
+  describe("getTrendingTopic()", () => {
+    it("chiama Tavily con la query inglese orientata alla rilevanza e i parametri corretti", async () => {
+      mockSearch.mockResolvedValueOnce({
+        results: [{ title: "World Leaders Meet at G7 Summit", url: "https://news.com/g7", content: "..." }],
+      });
+
+      const { getTrendingTopic } = await import("@/lib/tavily");
+      await getTrendingTopic();
+
+      expect(mockSearch).toHaveBeenCalledWith(
+        "top world news today most important",
+        expect.objectContaining({ topic: "news", maxResults: 1 })
+      );
+    });
+
+    it("restituisce il titolo del primo risultato", async () => {
+      mockSearch.mockResolvedValueOnce({
+        results: [{ title: "Elezioni in Francia: vince il centrosinistra", url: "https://news.com/fr", content: "..." }],
+      });
+
+      const { getTrendingTopic } = await import("@/lib/tavily");
+      const result = await getTrendingTopic();
+
+      expect(result).toBe("Elezioni in Francia: vince il centrosinistra");
+    });
+
+    it("lancia un errore quando non ci sono risultati", async () => {
+      mockSearch.mockResolvedValueOnce({ results: [] });
+
+      const { getTrendingTopic } = await import("@/lib/tavily");
+      await expect(getTrendingTopic()).rejects.toThrow("Nessun trending topic disponibile al momento.");
+    });
+
+    it("lancia un errore quando il primo risultato non ha titolo", async () => {
+      mockSearch.mockResolvedValueOnce({ results: [{ title: undefined, url: "https://news.com/x", content: "" }] });
+
+      const { getTrendingTopic } = await import("@/lib/tavily");
+      await expect(getTrendingTopic()).rejects.toThrow("Nessun trending topic disponibile al momento.");
+    });
+  });
 });

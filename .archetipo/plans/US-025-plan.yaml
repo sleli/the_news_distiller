@@ -1,0 +1,64 @@
+schema: archetipo/plan/v2
+spec_code: US-025
+body: |-
+  # US-025: Migliorare la query Tavily per "Argomento del giorno" con una formulazione inglese orientata alla rilevanza — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-20
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-002 — Richiesta Distillato
+  **Priorità:** MEDIUM | **Punti:** 1
+
+  **User Story**
+  In qualità di utente autenticato,
+  voglio che il bottone "Argomento del giorno" restituisca la notizia editorialmente più rilevante del momento,
+  in modo da ottenere un suggerimento di topic di effettivo interesse generale anziché un articolo di nicchia.
+
+  **Criteri di Accettazione**
+  - [ ] La query inviata a Tavily in `getTrendingTopic()` è sostituita con una formulazione in inglese orientata alla rilevanza, ad esempio `"top world news today most important"`
+  - [ ] I parametri `topic: "news"` e `maxResults: 1` rimangono invariati
+  - [ ] Il comportamento del bottone nel frontend non cambia
+
+  ---
+
+  ## Soluzione Tecnica
+
+  La modifica è chirurgica e riguarda un solo file: `src/lib/tavily.ts`. La funzione `getTrendingTopic()` (riga 34) usa attualmente la query `"notizie del giorno trending"` in italiano, che tende a restituire risultati di nicchia o localizzati. Sostituirla con `"top world news today most important"` in inglese orienta Tavily verso i risultati di maggiore rilevanza editoriale globale, restituendo notizie di primo piano anziché articoli di interesse ristretto.
+
+  - **File da modificare:** `src/lib/tavily.ts` — solo la stringa di query in `getTrendingTopic()`, riga 34
+  - **Parametri invariati:** `topic: "news"` e `maxResults: 1` restano esattamente come sono
+  - **Nessun impatto sul frontend:** L'API route `GET /api/distill/trending`, il componente `DistillForm` e tutta la catena di chiamata rimangono invariati
+  - **Nessun impatto su `searchArticles()`:** La funzione parallela che gestisce il harvesting degli articoli per i distillati non è coinvolta
+
+  ---
+
+  ## Strategia di Test
+
+  La spec è puramente server-side e non introduce nuova logica — si tratta di una modifica a un literal string. Non è richiesto alcun test e2e (nessuna UI coinvolta). La strategia si limita a un unit test di regressione per `getTrendingTopic()` che verifica i parametri della chiamata Tavily.
+
+  - **Test di regressione:** Verificare che `getTrendingTopic()` invochi il client Tavily con `topic: "news"` e `maxResults: 1` — i parametri critici che la spec impone invariati
+  - **Copertura esistente:** I test esistenti in `tests/unit/` per la route `GET /api/distill/trending` (US-023) rimangono validi senza modifiche, poiché mockano `getTrendingTopic` a livello di modulo
+  - **Nessun test e2e:** La spec non modifica il comportamento visibile dell'utente né introduce nuovi flussi UI
+
+  ---
+
+  _Piano generato tramite ARchetipo Planning — 2026-06-20_
+tasks:
+  - id: TASK-01
+    title: Aggiornare la query in `getTrendingTopic()` in `src/lib/tavily.ts`
+    description: 'Sostituire la stringa di query `"notizie del giorno trending"` con `"top world news today most important"` nella funzione `getTrendingTopic()` (riga 34 di `src/lib/tavily.ts`). I parametri `topic: "news"` e `maxResults: 1` restano invariati.'
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Unit test di regressione per `getTrendingTopic()`
+    description: 'Aggiungere o aggiornare un test in `tests/unit/` che verifica che `getTrendingTopic()` chiami il client Tavily con i parametri corretti (`topic: "news"`, `maxResults: 1`). Verificare che la funzione restituisca il titolo del primo risultato e gestisca correttamente il caso in cui non ci siano risultati.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02

@@ -31,7 +31,7 @@ export async function searchArticles(
 }
 
 export async function getTrendingTopic(): Promise<string> {
-  const response = await client.search("notizie del giorno trending", {
+  const response = await client.search("top world news today most important", {
     maxResults: 1,
     topic: "news",
   });
