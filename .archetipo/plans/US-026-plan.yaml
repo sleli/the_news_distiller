@@ -1,0 +1,42 @@
+schema: archetipo/plan/v2
+spec_code: US-026
+body: "# US-026: Aggiungere il bottone cestino vintage nelle card dell'archivio storico — Piano di Implementazione\n\n**Generato da:** ARchetipo Planning Team\n**Data:** 2026-06-20\n\n---\n\n## Spec\n\n**Epic:** EP-004 — Notifica e Consultazione\n**Priorità:** MEDIUM | **Punti:** 2\n\n**User Story**\nIn qualità di Marco, utente autenticato,\nvoglio eliminare un distillato direttamente dalla pagina archivio cliccando un'icona cestino in stile vintage sulla relativa card,\nin modo da gestire l'archivio senza dover tornare alla pagina di richiesta.\n\n**Criteri di Accettazione**\n- [ ] Ogni `ArchiveCard` mostra un bottone con icona cestino in stile vintage, coerente con l'estetica grafica dell'app\n- [ ] Il bottone è visibile per tutte le card indipendentemente dallo stato del job (PENDING, RUNNING, DONE, FAILED)\n- [ ] Al click appare un dialog di conferma (\"Sei sicuro? Questa azione è irreversibile\")\n- [ ] Dopo la conferma viene chiamato `DELETE /api/distill/[id]`; la card viene rimossa dalla griglia in modo ottimistico (senza full reload)\n- [ ] Se la chiamata API fallisce, la card viene ripristinata e viene mostrato un messaggio di errore\n- [ ] `ArchiveCard` e `ArchiveGrid` diventano Client Components per gestire lo stato locale delle card\n\n---\n\n## Soluzione Tecnica\n\nLa spec è puramente UI: l'endpoint `DELETE /api/distill/[id]` è già implementato e testato (US-022). La soluzione centralizza la logica di eliminazione in `ArchiveGrid` (già Client Component) e la espone a `ArchiveCard` tramite un callback `onDelete`.\n\n### Architettura dei componenti\n\n- **`ArchiveGrid`** — già `\"use client\"`, aggiunge:\n  - Callback `handleDelete(id: string)`: mostra `window.confirm()`, rimuove ottimisticamente dalla lista `jobs`, chiama `DELETE /api/distill/[id]`, ripristina in caso di errore e mostra `deleteError`\n  - Stato `deleteError: string | null` per il messaggio di errore inline\n  - Passa `onDelete={handleDelete}` come prop a ogni `ArchiveCard`\n  - Gestione race condition polling: il `fetchJobs` lanciato ogni 5 secondi non può ripristinare un job già eliminato perché l'API non lo restituirà più dopo il DELETE confermato; l'unica race condition rilevante è una delete ottimistica in attesa di risposta API durante un tick di polling — risolvibile escludendo dalla `setJobs` i job rimossi ottimisticamente (tenendo un `Set` degli id in eliminazione)\n\n- **`ArchiveCard`** — aggiunta direttiva `\"use client\"` + nuova prop `onDelete: (id: string) => void`:\n  - Bottone cestino con SVG inline a tratto vintage, posizionato in alto a destra della card (absolute positioning)\n  - `data-testid=\"delete-btn\"` per i test\n  - Visibile per tutti gli stati: PENDING, RUNNING, DONE, FAILED\n\n### Stile del bottone cestino\n\nSVG monocromatico a tratto grezzo (stroke, no fill), coerente con il design system `np-*` già usato in `DistillForm`. Dimensioni: 14×16px, colore `var(--ink-faded)` in riposo, `var(--np-red)` al hover.\n\n### Flusso delete ottimistico\n\n1. Click su cestino → `window.confirm(\"Sei sicuro? Questa azione è irreversibile\")` \n2. Utente conferma → aggiunge `id` al Set degli id in eliminazione → rimuove la card da `jobs` (`setJobs(prev => prev.filter(j => j.id !== id))`)\n3. Chiama `fetch(\\`/api/distill/${id}\\`, { method: 'DELETE' })`\n4. Successo (204) → rimuove `id` dal Set degli id in eliminazione\n5. Errore → ripristina la card (`setJobs(prev => [job, ...prev])` nella posizione originale o in testa), mostra `deleteError`\n\n---\n\n## Strategia di Test\n\nCopertura a tre livelli: unit test su `ArchiveCard` per il rendering del bottone, unit test su `ArchiveGrid` per la logica ottimistica, E2E Playwright per il flusso completo dall'archivio.\n\n- **Unit test `ArchiveCard`:** Jest + Testing Library — verifica che `delete-btn` sia presente per ogni stato (PENDING, RUNNING, DONE, FAILED)\n- **Unit test `ArchiveGrid`:** Jest + Testing Library — rimozione ottimistica della card, rollback in caso di errore API, visualizzazione messaggio di errore; mockare `fetch` con `jest.fn()`\n- **E2E:** Playwright — flusso completo login → `/archivio` → click cestino → conferma → card scompare senza reload; annullamento dialog → card rimane; errore API intercettato → rollback e messaggio\n\n### Test E2E — Simulazione Utente\n\n**Framework:** Playwright (già configurato nel progetto)\n**Video recording:** Abilitato per tutti gli scenari, output in `docs/test-results/US-026/`\n\n| Scenario | Descrizione del flusso |\n|---|---|\n| Eliminazione con successo | Utente autentica, apre `/archivio`, vede il bottone cestino su una card, clicca, conferma il dialog, la card scompare dalla griglia senza reload |\n| Annullamento dialog | Utente autentica, apre `/archivio`, clicca cestino, annulla il dialog, la card rimane nella griglia |\n| Errore API con rollback | Utente autentica, apre `/archivio`, click cestino, conferma, DELETE intercettato e forzato a 500, la card viene ripristinata e appare un messaggio di errore |\n| Bottone visibile su tutti gli stati | Utente autentica, apre `/archivio` con job in stati misti, verifica che `delete-btn` sia presente per DONE, FAILED, PENDING, RUNNING |\n\n---\n\n_Piano generato via ARchetipo Planning — 2026-06-20_"
+tasks:
+  - id: TASK-01
+    title: Aggiungere direttiva 'use client' e prop onDelete a ArchiveCard
+    description: 'Aggiungere `"use client"` in cima a `src/components/distill/ArchiveCard.tsx`. Aggiungere prop `onDelete: (id: string) => void` all''interfaccia `ArchiveCardProps`. Aggiungere il bottone cestino con SVG inline vintage (stroke-only, 14x16px, colore var(--ink-faded) default, var(--np-red) al hover), posizionato in alto a destra della card con `position: absolute; top: .4rem; right: .4rem`. Aggiungere `data-testid="delete-btn"`. Il bottone chiama `onDelete(job.id)` al click. Visibile per tutti gli stati.'
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Unit test per bottone cestino in ArchiveCard
+    description: Estendere `tests/unit/ArchiveCard.test.tsx` con un gruppo `describe('bottone cestino')` che verifica che `delete-btn` sia presente per ogni status (PENDING, RUNNING, DONE, FAILED) quando viene passata una prop `onDelete` mock. Verificare anche che il click chiami `onDelete` con il corretto `job.id`.
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Aggiungere logica handleDelete e stato deleteError in ArchiveGrid
+    description: 'In `src/components/distill/ArchiveGrid.tsx`: aggiungere `useState<string|null>(null)` per `deleteError`; aggiungere un `Set<string>` (ref) per tracciare gli id in eliminazione ottimistica; implementare `handleDelete(id: string)`: confirm dialog → rimozione ottimistica da `jobs` → fetch DELETE → rollback + deleteError su errore. Aggiornare `fetchJobs` per escludere dalla `setJobs` gli id attualmente in eliminazione. Passare `onDelete={handleDelete}` a ogni `<ArchiveCard>`. Mostrare `deleteError` come banner inline sotto i filter chip.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-03
+  - id: TASK-04
+    title: Unit test per logica ottimistica e rollback in ArchiveGrid
+    description: 'Creare `tests/unit/ArchiveGrid.delete.test.tsx` (o aggiungere a `ArchiveGrid.notification.test.tsx`). Mockare `fetch` con `jest.fn()`. Scenari: (1) click cestino + conferma → card rimossa dalla griglia; (2) click cestino + annullamento → card rimane; (3) fetch che restituisce 500 → card ripristinata + messaggio deleteError visibile.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-04
+  - id: TASK-05
+    title: Test E2E Playwright per eliminazione card dall'archivio
+    description: 'Creare `tests/e2e/archivio-delete.spec.ts`. Abilitare video recording con output in `docs/test-results/US-026/`. Seguire i pattern di autenticazione di `archivio.spec.ts` e `distill-delete.spec.ts`. Scenari: (1) eliminazione con successo — card scompare senza reload; (2) annullamento dialog — card rimane; (3) errore API intercettato con `page.route` → rollback e messaggio di errore; (4) bottone `delete-btn` visibile su card di stati diversi.'
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-03
+    ref: TASK-05

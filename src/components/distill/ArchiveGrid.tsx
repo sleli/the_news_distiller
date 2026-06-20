@@ -21,6 +21,8 @@ interface ArchiveGridProps {
 export function ArchiveGrid({ initialJobs }: ArchiveGridProps) {
   const [jobs, setJobs] = useState<ArchiveJobData[]>(initialJobs);
   const [filter, setFilter] = useState<FilterKey>("all");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deletingIdsRef = useRef<Set<string>>(new Set());
   const prevStatusRef = useRef<Map<string, string>>(
     new Map(initialJobs.map((j) => [j.id, j.status]))
   );
@@ -40,7 +42,8 @@ export function ArchiveGrid({ initialJobs }: ArchiveGridProps) {
         }
       }
       prevStatusRef.current = new Map(data.map((j) => [j.id, j.status]));
-      setJobs(data);
+      // Escludi gli id in eliminazione ottimistica
+      setJobs(data.filter((j) => !deletingIdsRef.current.has(j.id)));
     } catch {
       // silently ignore — next tick will retry
     }
@@ -51,6 +54,40 @@ export function ArchiveGrid({ initialJobs }: ArchiveGridProps) {
     const id = setInterval(fetchJobs, 5000);
     return () => clearInterval(id);
   }, [hasLive, fetchJobs]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    if (!window.confirm("Sei sicuro? Questa azione è irreversibile.")) return;
+
+    // Protegge da doppio click
+    if (deletingIdsRef.current.has(id)) return;
+
+    // Cattura solo l'item da rimuovere per un rollback preciso anche in presenza di polling
+    const removedItem = jobs.find((j) => j.id === id);
+
+    // Rimozione ottimistica
+    deletingIdsRef.current.add(id);
+    setJobs((prev) => prev.filter((j) => j.id !== id));
+    setDeleteError(null);
+
+    try {
+      const res = await fetch(`/api/distill/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      deletingIdsRef.current.delete(id);
+    } catch {
+      // Rollback: reinserisce solo l'item rimosso senza scartare aggiornamenti nel frattempo
+      deletingIdsRef.current.delete(id);
+      if (removedItem) {
+        setJobs((prev) => {
+          // Evita duplicati nel caso il polling lo avesse già reintrodotto
+          if (prev.some((j) => j.id === id)) return prev;
+          return [removedItem, ...prev];
+        });
+      }
+      setDeleteError("Impossibile eliminare il distillato. Riprova.");
+    }
+  }, [jobs]);
 
   const filtered = filter === "all" ? jobs : jobs.filter((j) => j.status === filter);
 
@@ -102,7 +139,7 @@ export function ArchiveGrid({ initialJobs }: ArchiveGridProps) {
           display: "flex",
           gap: ".4rem",
           flexWrap: "wrap",
-          marginBottom: "1rem",
+          marginBottom: deleteError ? ".5rem" : "1rem",
         }}
       >
         {FILTERS.map((f) => (
@@ -141,6 +178,26 @@ export function ArchiveGrid({ initialJobs }: ArchiveGridProps) {
           </span>
         )}
       </div>
+
+      {/* Delete error banner */}
+      {deleteError && (
+        <div
+          data-testid="delete-error"
+          className="np-error-msg"
+          style={{
+            marginBottom: "1rem",
+            padding: ".4rem .75rem",
+            border: "1px solid #B80019",
+            borderLeft: "3px solid #B80019",
+            fontFamily: "var(--font-body, Georgia, serif)",
+            fontSize: ".78rem",
+            color: "#B80019",
+            background: "rgba(184,0,25,.04)",
+          }}
+        >
+          {deleteError}
+        </div>
+      )}
 
       {/* Empty state */}
       {filtered.length === 0 && (
@@ -182,7 +239,7 @@ export function ArchiveGrid({ initialJobs }: ArchiveGridProps) {
           className="np-archive-grid"
         >
           {filtered.map((job) => (
-            <ArchiveCard key={job.id} job={job} />
+            <ArchiveCard key={job.id} job={job} onDelete={handleDelete} />
           ))}
         </div>
       )}

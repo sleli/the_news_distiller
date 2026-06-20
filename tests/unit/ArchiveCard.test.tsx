@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom";
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { ArchiveCard, type ArchiveJobData } from "@/components/distill/ArchiveCard";
 
 jest.mock("next/link", () => {
@@ -127,6 +127,45 @@ describe("ArchiveCard", () => {
     it("topic non è un link per FAILED", () => {
       render(<ArchiveCard job={makeJob({ status: "FAILED", snippet: null, sourceCount: null, positionCount: null })} />);
       expect(screen.queryByTestId("card-link")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("bottone cestino", () => {
+    it("delete-btn presente per stato PENDING quando viene passata prop onDelete", () => {
+      const onDelete = jest.fn();
+      render(<ArchiveCard job={makeJob({ status: "PENDING", snippet: null, sourceCount: null, positionCount: null })} onDelete={onDelete} />);
+      expect(screen.getByTestId("delete-btn")).toBeInTheDocument();
+    });
+
+    it("delete-btn presente per stato RUNNING quando viene passata prop onDelete", () => {
+      const onDelete = jest.fn();
+      render(<ArchiveCard job={makeJob({ status: "RUNNING", snippet: null, sourceCount: null, positionCount: null })} onDelete={onDelete} />);
+      expect(screen.getByTestId("delete-btn")).toBeInTheDocument();
+    });
+
+    it("delete-btn presente per stato DONE quando viene passata prop onDelete", () => {
+      const onDelete = jest.fn();
+      render(<ArchiveCard job={makeJob({ status: "DONE" })} onDelete={onDelete} />);
+      expect(screen.getByTestId("delete-btn")).toBeInTheDocument();
+    });
+
+    it("delete-btn presente per stato FAILED quando viene passata prop onDelete", () => {
+      const onDelete = jest.fn();
+      render(<ArchiveCard job={makeJob({ status: "FAILED", snippet: null, sourceCount: null, positionCount: null })} onDelete={onDelete} />);
+      expect(screen.getByTestId("delete-btn")).toBeInTheDocument();
+    });
+
+    it("click su delete-btn chiama onDelete con il corretto job.id", () => {
+      const onDelete = jest.fn();
+      render(<ArchiveCard job={makeJob({ id: "job-42", status: "DONE" })} onDelete={onDelete} />);
+      fireEvent.click(screen.getByTestId("delete-btn"));
+      expect(onDelete).toHaveBeenCalledTimes(1);
+      expect(onDelete).toHaveBeenCalledWith("job-42");
+    });
+
+    it("delete-btn assente quando onDelete non è passata", () => {
+      render(<ArchiveCard job={makeJob({ status: "DONE" })} />);
+      expect(screen.queryByTestId("delete-btn")).not.toBeInTheDocument();
     });
   });
 });
