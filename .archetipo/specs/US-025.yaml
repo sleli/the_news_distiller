@@ -1,0 +1,27 @@
+schema: archetipo/spec/v2
+code: US-025
+title: Migliorare la query Tavily per "Argomento del giorno" con una formulazione inglese orientata alla rilevanza
+epic:
+  code: EP-002
+  title: Richiesta Distillato
+priority: MEDIUM
+points: 1
+status: TODO
+body: |-
+  #### US-025: Migliorare la query Tavily per "Argomento del giorno" con una formulazione inglese orientata alla rilevanza
+
+  **Epic:** EP-002 | **Priorità:** MEDIUM | **Punti:** 1 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di utente autenticato,
+  voglio che il bottone "Argomento del giorno" restituisca la notizia editorialmente più rilevante del momento,
+  in modo da ottenere un suggerimento di topic di effettivo interesse generale anziché un articolo di nicchia.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, cliccando "Argomento del giorno" in una giornata con notizie di politica internazionale di rilievo, il campo topic viene pre-compilato con un argomento di primo piano e non con una notizia finanziaria di nicchia.
+
+  **Criteri di Accettazione**
+  - [ ] La query inviata a Tavily in `getTrendingTopic()` è sostituita con una formulazione in inglese orientata alla rilevanza, ad esempio `"top world news today most important"`
+  - [ ] I parametri `topic: "news"` e `maxResults: 1` rimangono invariati
+  - [ ] Il comportamento del bottone nel frontend non cambia

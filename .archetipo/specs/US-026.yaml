@@ -1,0 +1,30 @@
+schema: archetipo/spec/v2
+code: US-026
+title: Aggiungere il bottone cestino vintage nelle card dell'archivio storico
+epic:
+  code: EP-004
+  title: Notifica e Consultazione
+priority: MEDIUM
+points: 2
+status: TODO
+body: |-
+  #### US-026: Aggiungere il bottone cestino vintage nelle card dell'archivio storico
+
+  **Epic:** EP-004 | **Priorità:** MEDIUM | **Punti:** 2 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di Marco, utente autenticato,
+  voglio eliminare un distillato direttamente dalla pagina archivio cliccando un'icona cestino in stile vintage sulla relativa card,
+  in modo da gestire l'archivio senza dover tornare alla pagina di richiesta.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, Marco apre `/archivio`, vede il bottone cestino vintage su ogni card, clicca su quello di un job, conferma l'eliminazione nel dialog e la card scompare dalla griglia senza ricaricare la pagina.
+
+  **Criteri di Accettazione**
+  - [ ] Ogni `ArchiveCard` mostra un bottone con icona cestino in stile vintage, coerente con l'estetica grafica dell'app
+  - [ ] Il bottone è visibile per tutte le card indipendentemente dallo stato del job (PENDING, RUNNING, DONE, FAILED)
+  - [ ] Al click appare un dialog di conferma ("Sei sicuro? Questa azione è irreversibile")
+  - [ ] Dopo la conferma viene chiamato `DELETE /api/distill/[id]`; la card viene rimossa dalla griglia in modo ottimistico (senza full reload)
+  - [ ] Se la chiamata API fallisce, la card viene ripristinata e viene mostrato un messaggio di errore
+  - [ ] `ArchiveCard` e `ArchiveGrid` diventano Client Components per gestire lo stato locale delle card
