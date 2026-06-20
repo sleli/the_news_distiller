@@ -128,6 +128,10 @@ export function buildDistillPrompt(
   };
 }
 
+// Schema JSON atteso, condiviso dai provider che non vincolano la forma via tool/SDK
+// (CLI e OpenAI-compatible). Unica fonte di verità per la struttura del payload.
+const DISTILL_JSON_SCHEMA_HINT = `{"summary":"stringa","positions":[{"label":"stringa","headline":"stringa","body":"stringa","sourceRefs":["stringa"]}],"sources":[{"title":"stringa","url":"stringa"}]}`;
+
 // TASK-03: CLI subprocess backend
 export class ClaudeCliNotFoundError extends Error {
   constructor() {
@@ -142,10 +146,9 @@ export async function distillViaCLI(
   systemPrompt: string,
   userMessage: string
 ): Promise<DistillResult> {
-  const jsonSchemaHint = `{"summary":"stringa","positions":[{"label":"stringa","headline":"stringa","body":"stringa","sourceRefs":["stringa"]}],"sources":[{"title":"stringa","url":"stringa"}]}`;
   const fullPrompt =
     `${systemPrompt}\n\n${userMessage}\n\n` +
-    `Rispondi ESCLUSIVAMENTE con un oggetto JSON valido corrispondente a questo schema (nessun testo aggiuntivo, nessun markdown, nessun blocco di codice):\n${jsonSchemaHint}`;
+    `Rispondi ESCLUSIVAMENTE con un oggetto JSON valido corrispondente a questo schema (nessun testo aggiuntivo, nessun markdown, nessun blocco di codice):\n${DISTILL_JSON_SCHEMA_HINT}`;
 
   return new Promise((resolve, reject) => {
     const proc = spawn("claude", ["-p"], { stdio: ["pipe", "pipe", "pipe"] });
@@ -212,7 +215,12 @@ export async function distillViaOpenAI(
   const response = await client.chat.completions.create({
     model: process.env.OPENAI_MODEL!,
     messages: [
-      { role: "system", content: systemPrompt },
+      {
+        role: "system",
+        content:
+          `${systemPrompt}\n\n` +
+          `Rispondi ESCLUSIVAMENTE con un oggetto JSON valido corrispondente a questo schema (nessun testo aggiuntivo, nessun markdown, nessun blocco di codice):\n${DISTILL_JSON_SCHEMA_HINT}`,
+      },
       { role: "user", content: userMessage },
     ],
     response_format: { type: "json_object" },
