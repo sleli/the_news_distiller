@@ -10,7 +10,7 @@
     "db:migrate-from-sqlite": "tsx scripts/migrate-sqlite-to-pg.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
-    "postinstall": "prisma generate && prisma db push",
+    "postinstall": "prisma generate",
     "test:e2e": "playwright test",
     "test:unit": "jest",
     "test:integration": "jest --config jest.integration.config.ts",
