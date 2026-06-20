@@ -1,0 +1,120 @@
+schema: archetipo/plan/v2
+spec_code: US-028
+body: |-
+  # US-028: Supporto provider AI configurabile via variabili d'ambiente — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-20
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-005 — Configurazione e Personalizzazione
+  **Priorità:** HIGH | **Punti:** 5
+
+  **User Story**
+  In qualità di utente, voglio poter scegliere il provider AI (Anthropic o OpenAI-compatible) configurando le variabili d'ambiente nel file `.env`, in modo da collegare servizi come OpenRouter o opencode go senza modificare il codice.
+
+  **Criteri di Accettazione**
+  - Le variabili d'ambiente `AI_PROVIDER`, `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL` sono documentate in `.env.example`
+  - Se `AI_PROVIDER` non è impostato, il default è `claude_subprocess`
+  - `distillArticles()` legge `AI_PROVIDER` da `process.env` e dispatch su tre rami
+  - Il ramo `openai_compatible` usa il pacchetto `openai` con `baseURL` configurabile e `response_format: { type: "json_object" }`
+  - L'output del provider OpenAI-compatible viene validato con `validateDistillResult()` esistente
+  - Se le variabili richieste per il provider selezionato mancano, il job fallisce con messaggio d'errore esplicito
+  - Il campo `claudeMode` e la relativa sezione nella pagina Settings vengono rimossi
+  - Il modello `AppSettings` perde il campo `claudeMode` (o l'intera tabella se non ha altri campi utili)
+  - Nessuna chiave API o configurazione provider viene salvata nel database
+
+  ---
+
+  ## Soluzione Tecnica
+
+  Il dispatching del provider AI passa dalla configurazione DB (`AppSettings.claudeMode`) alle variabili d'ambiente (`process.env.AI_PROVIDER`). Questo semplifica l'architettura eliminando stato mutable dal DB per una decisione che è tipicamente infrastrutturale.
+
+  - **Nuovo dispatching in `src/lib/claude.ts`:** `distillArticles()` legge `process.env.AI_PROVIDER` (default: `claude_subprocess`) e dispatch su 3 rami: `anthropic` (SDK Anthropic con tool_use, invariato), `openai_compatible` (nuovo, SDK OpenAI con JSON mode), `claude_subprocess` (CLI, invariato). La lettura da `prisma.appSettings` viene rimossa.
+  - **Nuovo ramo `openai_compatible`:** Funzione `distillViaOpenAI()` che usa il pacchetto `openai` con `baseURL` da `OPENAI_BASE_URL`, `apiKey` da `OPENAI_API_KEY`, modello da `OPENAI_MODEL`. Usa `response_format: { type: "json_object" }` e passa il system prompt + user message. L'output JSON viene validato con `validateDistillResult()` esistente.
+  - **Validazione env vars fail-fast:** Prima del dispatch, una funzione `validateProviderEnv()` verifica che le variabili richieste per il provider scelto siano presenti. Se mancano, lancia un errore esplicito con messaggio che elenca le variabili mancanti.
+  - **Rimozione `AppSettings`:** Il modello `AppSettings` in `prisma/schema.prisma` ha solo `claudeMode` come campo utile — va rimosso interamente. Conseguentemente vanno rimossi: `src/app/api/settings/route.ts`, la sezione claudeMode dal `SettingsForm.tsx`, e il codice in `settings/page.tsx` che legge le settings da DB.
+  - **Pagina Settings:** Rimuovere il selettore modalità Claude. La pagina può restare come shell per future impostazioni oppure mostrare solo info di stato.
+  - **Dipendenza `openai`:** Aggiungere il pacchetto `openai` al `package.json`.
+  - **`.env.example`:** Aggiungere le nuove variabili documentate.
+
+  ---
+
+  ## Strategia di Test
+
+  I test devono coprire tutti e 3 i rami di dispatching, la validazione fail-fast delle env vars, e la rimozione della UI Settings.
+
+  - **Unit test `claude.test.ts`:** Aggiornare i test esistenti rimuovendo i mock di `prisma.appSettings` e sostituendoli con manipolazione di `process.env.AI_PROVIDER`. Aggiungere test per: ramo `openai_compatible` (mock SDK OpenAI), validazione env vars mancanti per ciascun provider, default a `claude_subprocess` quando `AI_PROVIDER` non è impostato.
+  - **Unit test `SettingsForm.test.tsx`:** Aggiornare o rimuovere i test relativi al selettore claudeMode.
+  - **Integration test `settings-api.test.ts`:** Rimuovere o aggiornare i test dell'API settings che testano PATCH/GET di claudeMode.
+  - **E2E:** Aggiornare il test Playwright della pagina Settings per verificare che il selettore claudeMode non sia più presente.
+
+  ### Test E2E — Simulazione Utente
+
+  **Framework:** Playwright
+  **Video recording:** Abilitato per tutti gli scenari
+
+  | Scenario | Descrizione flusso utente |
+  |---|---|
+  | Settings senza selettore Claude | L'utente accede a /settings e verifica che la sezione "Modalità Claude" con le card API_KEY/CLI_SUBPROCESS non è più visibile |
+  | Distillazione funzionante | L'utente autenticato avvia una distillazione e verifica che il job viene creato correttamente (il provider è trasparente per l'utente) |
+
+  ---
+
+  _Piano generato via ARchetipo Planning — 2026-06-20_
+tasks:
+  - id: TASK-01
+    title: Installare il pacchetto openai
+    description: Aggiungere la dipendenza `openai` al progetto con `npm install openai`. Verificare che il pacchetto sia disponibile per l'import.
+    type: Impl
+    status: TODO
+  - id: TASK-02
+    title: Aggiungere variabili d'ambiente in .env.example
+    description: 'Documentare `AI_PROVIDER` (valori: `anthropic`, `openai_compatible`, `claude_subprocess`; default: `claude_subprocess`), `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL` in `.env.example` con commenti esplicativi.'
+    type: Impl
+    status: TODO
+  - id: TASK-03
+    title: Implementare distillViaOpenAI() e refactoring dispatching in claude.ts
+    description: 'Creare la funzione `distillViaOpenAI()` che usa l''SDK `openai` con `baseURL`, `apiKey` e `model` da env vars, `response_format: { type: ''json_object'' }`, e valida l''output con `validateDistillResult()`. Aggiungere `validateProviderEnv()` per fail-fast su env vars mancanti. Refactoring di `distillArticles()`: rimuovere la lettura da `prisma.appSettings`, leggere `process.env.AI_PROVIDER` (default `claude_subprocess`), dispatch su 3 rami.'
+    type: Impl
+    status: TODO
+    dependencies:
+      - TASK-01
+  - id: TASK-04
+    title: Unit test per il nuovo dispatching e ramo openai_compatible
+    description: 'Aggiornare `tests/unit/claude.test.ts`: rimuovere mock di `prisma.appSettings`, aggiungere test per i 3 rami via `process.env.AI_PROVIDER`, test per validazione env vars mancanti con messaggi espliciti, test per default a `claude_subprocess`, test per `distillViaOpenAI()` con mock dell''SDK OpenAI.'
+    type: Test
+    status: TODO
+    dependencies:
+      - TASK-03
+  - id: TASK-05
+    title: Rimuovere modello AppSettings da Prisma e codice correlato
+    description: Rimuovere il modello `AppSettings` da `prisma/schema.prisma`. Rimuovere `src/app/api/settings/route.ts`. Eseguire `npx prisma db push` per sincronizzare. Rimuovere eventuali import residui di AppSettings nel codebase.
+    type: Impl
+    status: TODO
+    dependencies:
+      - TASK-03
+  - id: TASK-06
+    title: Aggiornare pagina Settings e SettingsForm
+    description: Rimuovere il componente `SettingsForm.tsx` (o svuotarlo). Aggiornare `src/app/settings/page.tsx` rimuovendo la lettura delle AppSettings da DB, il selettore claudeMode, e il ticker relativo. La pagina può mostrare un messaggio informativo o restare come shell per future impostazioni.
+    type: Impl
+    status: TODO
+    dependencies:
+      - TASK-05
+  - id: TASK-07
+    title: Aggiornare/rimuovere test esistenti per Settings
+    description: Aggiornare o rimuovere `tests/unit/SettingsForm.test.tsx`, `tests/integration/settings-api.test.ts`, e gli e2e Playwright relativi alle settings di claudeMode (`tests/e2e/settings.spec.ts`, `tests/e2e/demo__settings-claude-mode.spec.ts`).
+    type: Test
+    status: TODO
+    dependencies:
+      - TASK-06
+  - id: TASK-08
+    title: 'E2E Playwright: verifica rimozione selettore Settings'
+    description: Scrivere un test e2e Playwright che accede a /settings e verifica che la sezione 'Modalità Claude' con le card di selezione non è più visibile. Video recording abilitato, output in `docs/test-results/US-028/`.
+    type: Test
+    status: TODO
+    dependencies:
+      - TASK-06

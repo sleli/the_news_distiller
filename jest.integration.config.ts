@@ -19,6 +19,10 @@ const config: Config = {
     ],
   },
   testTimeout: 30000,
+  // I test di integrazione condividono lo stesso database PostgreSQL:
+  // vanno eseguiti in serie per evitare interferenze tra suite
+  // (es. pollOnce() del worker che preleva job PENDING creati da altri test).
+  maxWorkers: 1,
 };
 
 export default config;

@@ -1,0 +1,42 @@
+schema: archetipo/spec/v2
+code: US-028
+title: Supporto provider AI configurabile via variabili d'ambiente
+epic:
+  code: EP-005
+  title: Configurazione e Personalizzazione
+priority: HIGH
+points: 5
+status: PLANNED
+body: |-
+  #### US-028: Supporto provider AI configurabile via variabili d'ambiente
+
+  **Epic:** EP-005 | **Priorità:** HIGH | **Punti:** 5 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di utente,
+  voglio poter scegliere il provider AI (Anthropic o OpenAI-compatible) configurando le variabili d'ambiente nel file `.env`,
+  in modo da collegare servizi come OpenRouter o opencode go senza modificare il codice.
+
+  **Estende boilerplate esistente: claude.ts, AppSettings, pagina Settings (US-018)**
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, l'utente configura `AI_PROVIDER=openai_compatible` nel `.env` con `OPENAI_BASE_URL`, `OPENAI_API_KEY` e `OPENAI_MODEL`, avvia l'app, e le distillazioni usano il provider scelto. Se configura `AI_PROVIDER=anthropic`, il sistema usa `ANTHROPIC_API_KEY` (già esistente). Se `AI_PROVIDER` non è impostato, il default è `claude_subprocess`. La pagina Settings non mostra più il selettore della modalità Claude.
+
+  **Configurazione `.env`**
+  - `AI_PROVIDER`: sceglie il provider — valori: `anthropic`, `openai_compatible`, `claude_subprocess` (default: `claude_subprocess`)
+  - `ANTHROPIC_API_KEY`: chiave API Anthropic (già esistente, richiesta se `AI_PROVIDER=anthropic`)
+  - `OPENAI_API_KEY`: chiave API per provider OpenAI-compatible (richiesta se `AI_PROVIDER=openai_compatible`)
+  - `OPENAI_BASE_URL`: endpoint base del provider OpenAI-compatible (es. `https://openrouter.ai/api/v1`)
+  - `OPENAI_MODEL`: nome del modello da usare (es. `openai/gpt-4o`, `anthropic/claude-sonnet-4-6`)
+
+  **Criteri di Accettazione**
+  - [ ] Le variabili d'ambiente `AI_PROVIDER` (`anthropic` | `openai_compatible` | `claude_subprocess`), `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL` sono documentate in `.env.example`
+  - [ ] Se `AI_PROVIDER` non è impostato, il default è `claude_subprocess`
+  - [ ] `distillArticles()` legge `AI_PROVIDER` da `process.env` e dispatch su tre rami: `anthropic` (Anthropic SDK + tool_use, usa `ANTHROPIC_API_KEY`), `openai_compatible` (OpenAI SDK + JSON mode, usa `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL`), `claude_subprocess` (Claude CLI, invariato)
+  - [ ] Il ramo `openai_compatible` usa il pacchetto `openai` con `baseURL` configurabile e `response_format: { type: "json_object" }`
+  - [ ] L'output del provider OpenAI-compatible viene validato con `validateDistillResult()` esistente
+  - [ ] Se le variabili richieste per il provider selezionato mancano (es. `ANTHROPIC_API_KEY` per `anthropic`, `OPENAI_API_KEY`/`OPENAI_BASE_URL`/`OPENAI_MODEL` per `openai_compatible`), il job fallisce con messaggio d'errore esplicito
+  - [ ] Il campo `claudeMode` e la relativa sezione nella pagina Settings vengono rimossi
+  - [ ] Il modello `AppSettings` perde il campo `claudeMode` (o l'intera tabella se non ha altri campi utili)
+  - [ ] Nessuna chiave API o configurazione provider viene salvata nel database

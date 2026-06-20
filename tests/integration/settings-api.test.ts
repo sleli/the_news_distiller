@@ -1,11 +1,6 @@
-import { execSync } from "child_process";
 import { PrismaClient } from "@prisma/client";
-import path from "path";
-import fs from "fs";
-import { NextResponse } from "next/server";
 
-const TEST_DB_PATH = path.join(__dirname, "test-settings.db");
-const TEST_DB_URL = `file:${TEST_DB_PATH}`;
+const TEST_SETTINGS_ID = "test-settings-api";
 
 let mockUser: { id: string; email: string } | null = null;
 
@@ -13,36 +8,19 @@ jest.mock("../../src/lib/auth", () => ({
   getCurrentUser: jest.fn().mockImplementation(() => Promise.resolve(mockUser)),
 }));
 
-jest.mock("../../src/lib/prisma", () => {
-  const { PrismaClient } = jest.requireActual("@prisma/client");
-  const client = new PrismaClient({
-    datasources: { db: { url: TEST_DB_URL } },
-  });
-  return { prisma: client };
-});
+const prisma = new PrismaClient();
 
-let prisma: PrismaClient;
+jest.mock("../../src/lib/prisma", () => ({
+  prisma,
+}));
 
 beforeAll(async () => {
-  if (fs.existsSync(TEST_DB_PATH)) {
-    fs.unlinkSync(TEST_DB_PATH);
-  }
-
-  process.env.DATABASE_URL = TEST_DB_URL;
-
-  execSync("npx prisma db push --skip-generate", {
-    env: { ...process.env, DATABASE_URL: TEST_DB_URL },
-    stdio: "pipe",
-  });
-
-  prisma = new PrismaClient({ datasources: { db: { url: TEST_DB_URL } } });
+  await prisma.$connect();
 });
 
 afterAll(async () => {
+  await prisma.appSettings.deleteMany();
   await prisma.$disconnect();
-  if (fs.existsSync(TEST_DB_PATH)) {
-    fs.unlinkSync(TEST_DB_PATH);
-  }
 });
 
 beforeEach(async () => {

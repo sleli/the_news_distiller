@@ -2,7 +2,7 @@
 
 ## Stack
 - **Next.js 15** (App Router, `src/` directory, Turbopack dev)
-- **SQLite** via **Prisma** per il database; auth custom email/password (sessioni su DB, cookie httpOnly) — niente servizi esterni.
+- **PostgreSQL** via **Prisma** per il database; auth custom email/password (sessioni su DB, cookie httpOnly) — niente servizi esterni.
 - **Tailwind CSS v4** with `@tailwindcss/postcss`
 - **shadcn/ui** for UI components
 
@@ -67,7 +67,7 @@ il cookie httpOnly `session` tramite `createSession()`.
 **Sign out**: `destroySession()` elimina la sessione corrente dal DB e cancella il cookie.
 
 ## Environment Variables
-- `DATABASE_URL` — connection string SQLite (es. `file:./dev.db`)
+- `DATABASE_URL` — connection string PostgreSQL (es. `postgresql://user:password@localhost:5432/the_news_distiller`)
 
 ## Archetipo Skills — Boilerplate Constraints
 
@@ -79,7 +79,7 @@ When Leonardo (Architect) proposes the technical architecture:
 
 - **Mandate the existing stack** — the base technology choices are not up for discussion:
   - Next.js 15 (App Router, `src/` directory, Turbopack dev)
-  - SQLite via Prisma + auth custom email/password
+  - PostgreSQL via Prisma + auth custom email/password
   - Tailwind CSS v4 with `@tailwindcss/postcss`
   - shadcn/ui for UI components
 - **Explain why** when presenting the stack: *"This project uses an existing boilerplate with auth, database, and UI already configured. Rebuilding would waste time and introduce inconsistencies."*

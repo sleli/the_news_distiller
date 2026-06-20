@@ -1,0 +1,29 @@
+schema: archetipo/spec/v2
+code: US-027
+title: Migrare il database da SQLite a PostgreSQL
+epic:
+  code: EP-001
+  title: Fondamenta e Infrastruttura Asincrona
+priority: HIGH
+points: 3
+status: REVIEW
+body: |-
+  #### US-027: Migrare il database da SQLite a PostgreSQL
+
+  **Epic:** EP-001 — Fondamenta e Infrastruttura Asincrona | **Priorità:** HIGH | **Punti:** 3 | **Stato:** TODO
+  **Bloccato da:** -
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio che l'applicazione utilizzi PostgreSQL al posto di SQLite come database,
+  in modo da poter sfruttare un database relazionale completo adatto ad ambienti di sviluppo e produzione condivisi.
+
+  **Dimostrabile**
+  Dopo l'implementazione di questa spec, l'applicazione si avvia correttamente connessa al database PostgreSQL, tutte le pagine e le API funzionano come prima, e i dati esistenti (utenti, sessioni, job, fonti, settings) sono presenti nel nuovo database.
+
+  **Criteri di Accettazione**
+  - [ ] Il `datasource` in `prisma/schema.prisma` usa `provider = "postgresql"` con la `DATABASE_URL` che punta al server PostgreSQL
+  - [ ] `npx prisma db push` completa senza errori sul database PostgreSQL
+  - [ ] I dati esistenti nel database SQLite (tabelle `users`, `sessions`, `distill_jobs`, `distill_sources`, `app_settings`) sono migrati nel database PostgreSQL
+  - [ ] L'applicazione si avvia (`npm run dev`) e tutte le funzionalità esistenti (auth, distillazione, archivio, settings) funzionano senza regressioni
+  - [ ] Il file `.env.example` o la documentazione riflette il formato della connection string PostgreSQL

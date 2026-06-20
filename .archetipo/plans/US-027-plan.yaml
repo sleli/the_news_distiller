@@ -1,0 +1,119 @@
+schema: archetipo/plan/v2
+spec_code: US-027
+body: |-
+  # US-027: Migrare il database da SQLite a PostgreSQL — Piano di Implementazione
+
+  **Generato da:** ARchetipo Planning Team
+  **Data:** 2026-06-20
+
+  ---
+
+  ## Spec
+
+  **Epic:** EP-001 — Fondamenta e Infrastruttura Asincrona
+  **Priorità:** HIGH | **Punti:** 3
+
+  **User Story**
+  In qualità di sviluppatore,
+  voglio che l'applicazione utilizzi PostgreSQL al posto di SQLite come database,
+  in modo da poter sfruttare un database relazionale completo adatto ad ambienti di sviluppo e produzione condivisi.
+
+  **Criteri di Accettazione**
+  - [ ] Il `datasource` in `prisma/schema.prisma` usa `provider = "postgresql"` con la `DATABASE_URL` che punta al server PostgreSQL
+  - [ ] `npx prisma db push` completa senza errori sul database PostgreSQL
+  - [ ] I dati esistenti nel database SQLite (tabelle `users`, `sessions`, `distill_jobs`, `distill_sources`, `app_settings`) sono migrati nel database PostgreSQL
+  - [ ] L'applicazione si avvia (`npm run dev`) e tutte le funzionalità esistenti (auth, distillazione, archivio, settings) funzionano senza regressioni
+  - [ ] Il file `.env.example` o la documentazione riflette il formato della connection string PostgreSQL
+
+  ---
+
+  ## Soluzione Tecnica
+
+  La migrazione è facilitata dal fatto che lo schema Prisma attuale usa UUID (`String @default(uuid())`) per tutti gli ID e non impiega feature specifiche di SQLite (autoincrement, tipi custom). Il tipo `Json` su `DistillJob.result` è supportato nativamente da PostgreSQL tramite `jsonb`. Il file `.env` contiene già una connection string PostgreSQL valida.
+
+  - **Cambio provider Prisma:** Modificare `datasource.provider` da `"sqlite"` a `"postgresql"` in `prisma/schema.prisma`. La `DATABASE_URL` nel `.env` punta già a PostgreSQL, quindi non serve modificarla.
+  - **Schema push:** Eseguire `npx prisma db push` per creare le tabelle nel database PostgreSQL. Non si usano le Prisma migrations (`prisma migrate`) poiché il progetto usa il pattern `db push`.
+  - **Migrazione dati:** Creare uno script TypeScript (`scripts/migrate-sqlite-to-pg.ts`) che legge i dati dal database SQLite locale (se esiste) e li inserisce nel database PostgreSQL rispettando l'ordine delle foreign key: `users` → `sessions` + `distill_jobs` → `distill_sources` + `app_settings`.
+  - **Aggiornamento documentazione:** Aggiornare `.env.example` con il formato della connection string PostgreSQL e aggiornare `CLAUDE.md`/`AGENTS.md` dove menzionano SQLite.
+  - **Pulizia:** Rimuovere il file `prisma/dev.db` dal progetto (se presente) e aggiungerlo a `.gitignore`.
+
+  ---
+
+  ## Strategia di Test
+
+  La strategia si concentra sulla verifica che tutte le operazioni CRUD funzionino correttamente su PostgreSQL e che non ci siano regressioni nelle funzionalità utente.
+
+  - **Test di integrazione:** Verificare le operazioni CRUD su tutte le tabelle (User, Session, DistillJob, DistillSource, AppSettings) tramite Prisma client connesso a PostgreSQL
+  - **Test di schema:** Verificare che `npx prisma db push` completa senza errori e che le tabelle vengono create correttamente
+  - **Test di validazione dati:** Dopo la migrazione, verificare che i conteggi e i dati chiave corrispondano tra SQLite e PostgreSQL
+
+  ### Test E2E — Simulazione Utente
+
+  **Framework:** Playwright (già configurato nel progetto)
+  **Video recording:** Abilitato per tutti gli scenari
+
+  | Scenario | Descrizione del flusso utente |
+  |---|---|
+  | Auth completa | L'utente si registra, effettua il login, accede alla dashboard, effettua il logout e rientra — verifica che auth e sessioni funzionino su PostgreSQL |
+  | Distillazione e archivio | L'utente autenticato avvia una distillazione, attende il completamento, visualizza il risultato nell'archivio storico — verifica che job e fonti vengano salvati e letti correttamente |
+  | Settings | L'utente accede alle impostazioni, modifica la configurazione Claude, verifica che le modifiche persistano — verifica la tabella app_settings su PostgreSQL |
+
+  ---
+
+  _Piano generato via ARchetipo Planning — 2026-06-20_
+tasks:
+  - id: TASK-01
+    title: Cambiare il provider Prisma da SQLite a PostgreSQL
+    description: Modificare il campo `provider` nel blocco `datasource db` di `prisma/schema.prisma` da `"sqlite"` a `"postgresql"`. Verificare che non servano altre modifiche allo schema (tipi, default, attributi).
+    type: Impl
+    status: DONE
+    ref: TASK-01
+  - id: TASK-02
+    title: Eseguire prisma db push su PostgreSQL
+    description: Eseguire `npx prisma generate` e `npx prisma db push` per creare le tabelle nel database PostgreSQL. Verificare che il comando completi senza errori e che tutte le tabelle esistano.
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-02
+  - id: TASK-03
+    title: Creare lo script di migrazione dati SQLite → PostgreSQL
+    description: 'Creare `scripts/migrate-sqlite-to-pg.ts` che legge i dati dal database SQLite locale (`prisma/dev.db`, se esiste) e li inserisce nel database PostgreSQL rispettando l''ordine delle foreign key: users → sessions + distill_jobs → distill_sources, app_settings. Usare `better-sqlite3` per leggere e Prisma client per scrivere.'
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-03
+  - id: TASK-04
+    title: Test di integrazione CRUD su PostgreSQL
+    description: Scrivere test di integrazione che verificano create, read, update, delete su tutte le tabelle (User, Session, DistillJob, DistillSource, AppSettings) usando il Prisma client connesso a PostgreSQL.
+    type: Test
+    status: DONE
+    dependencies:
+      - TASK-02
+    ref: TASK-04
+  - id: TASK-05
+    title: Aggiornare .env.example e documentazione
+    description: Aggiornare `.env.example` con il formato della connection string PostgreSQL (es. `postgresql://user:password@localhost:5432/dbname`). Aggiornare i riferimenti a SQLite in `CLAUDE.md` e `AGENTS.md`.
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-05
+  - id: TASK-06
+    title: Pulizia file SQLite e .gitignore
+    description: Rimuovere `prisma/dev.db` dal tracking git (se presente). Aggiungere `prisma/*.db` a `.gitignore` per prevenire commit accidentali di database locali.
+    type: Impl
+    status: DONE
+    dependencies:
+      - TASK-01
+    ref: TASK-06
+  - id: TASK-07
+    title: Test E2E regressione completa su PostgreSQL
+    description: Eseguire i test E2E Playwright esistenti (auth, distillazione, archivio, settings) contro l'applicazione connessa a PostgreSQL. Abilitare video recording e salvare i video in `docs/test-results/US-027/`. Aggiungere scenari specifici se mancanti.
+    type: Test
+    status: TODO
+    dependencies:
+      - TASK-02
+      - TASK-04
+    ref: TASK-07

@@ -21,3 +21,4 @@ prisma/*.db-journal
 .plans
 .vscode/
 playwright-report/
+.npm-cache/*
