@@ -1,7 +1,5 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { SettingsForm } from "@/components/settings/SettingsForm";
 
 function italianDate() {
   const now = new Date();
@@ -16,9 +14,6 @@ function italianDate() {
 export default async function SettingsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/auth/signin");
-
-  const settings = await prisma.appSettings.findUnique({ where: { id: "default" } });
-  const initialMode = (settings?.claudeMode ?? "API_KEY") as "API_KEY" | "CLI_SUBPROCESS";
 
   const displayName = user.name ?? user.email;
 
@@ -72,9 +67,9 @@ export default async function SettingsPage() {
       {/* TICKER */}
       <div className="np-ticker">
         <span className="np-ticker-inner">
-          IMPOSTAZIONI ACCOUNT &nbsp;·&nbsp; CONFIGURAZIONE MOTORE AI &nbsp;·&nbsp;
-          MODALITÀ CLAUDE: API KEY / CLI &nbsp;·&nbsp; PREFERENZE UTENTE &nbsp;·&nbsp;
-          IMPOSTAZIONI ACCOUNT &nbsp;·&nbsp; CONFIGURAZIONE MOTORE AI &nbsp;·&nbsp;
+          IMPOSTAZIONI ACCOUNT &nbsp;·&nbsp; PREFERENZE UTENTE &nbsp;·&nbsp;
+          CONFIGURAZIONE AI VIA VARIABILI D&apos;AMBIENTE &nbsp;·&nbsp;
+          IMPOSTAZIONI ACCOUNT &nbsp;·&nbsp; PREFERENZE UTENTE &nbsp;·&nbsp;
         </span>
       </div>
 
@@ -84,7 +79,7 @@ export default async function SettingsPage() {
           <span className="np-settings-page-hero-kicker">Impostazioni &amp; Configurazione</span>
           <h1 className="np-settings-page-hero-title">Pannello di Controllo</h1>
           <p className="np-settings-page-hero-deck">
-            Personalizza il comportamento del Distillatore — scegli come Claude elabora le tue notizie.
+            Configura il provider AI tramite le variabili d&apos;ambiente nel file <code>.env</code>.
           </p>
         </div>
         <div className="np-settings-page-hero-breadcrumb">
@@ -101,20 +96,62 @@ export default async function SettingsPage() {
           <div className="np-settings-nav-label">Sezioni</div>
           <a href="/settings" className="np-settings-nav-item active">
             <span className="np-settings-nav-item-icon">⚙</span>
-            Motore Claude
+            Motore AI
           </a>
         </aside>
 
         {/* MAIN CONTENT */}
         <main className="np-settings-content">
-          <SettingsForm initialMode={initialMode} />
+          <div className="np-settings-section-header">
+            <span className="np-settings-section-kicker">EP-005 · Motore AI</span>
+            <h2 className="np-settings-section-title">Configurazione Provider</h2>
+            <p className="np-settings-section-desc">
+              Il provider AI è configurato tramite la variabile d&apos;ambiente <code>AI_PROVIDER</code> nel
+              file <code>.env</code>. Valori supportati:
+            </p>
+          </div>
+
+          <div style={{ marginTop: "1rem" }}>
+            <table className="np-settings-env-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid var(--np-border)" }}>
+                  <th style={{ textAlign: "left", padding: ".4rem .6rem", fontWeight: 700 }}>Variabile</th>
+                  <th style={{ textAlign: "left", padding: ".4rem .6rem", fontWeight: 700 }}>Descrizione</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ borderBottom: "1px solid var(--np-border)" }}>
+                  <td style={{ padding: ".4rem .6rem" }}><code>AI_PROVIDER</code></td>
+                  <td style={{ padding: ".4rem .6rem" }}>
+                    <code>anthropic</code> · <code>openai_compatible</code> · <code>claude_subprocess</code> (default)
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: "1px solid var(--np-border)" }}>
+                  <td style={{ padding: ".4rem .6rem" }}><code>ANTHROPIC_API_KEY</code></td>
+                  <td style={{ padding: ".4rem .6rem" }}>Chiave API Anthropic (richiesta per <code>anthropic</code>)</td>
+                </tr>
+                <tr style={{ borderBottom: "1px solid var(--np-border)" }}>
+                  <td style={{ padding: ".4rem .6rem" }}><code>OPENAI_BASE_URL</code></td>
+                  <td style={{ padding: ".4rem .6rem" }}>Endpoint base provider OpenAI-compatible</td>
+                </tr>
+                <tr style={{ borderBottom: "1px solid var(--np-border)" }}>
+                  <td style={{ padding: ".4rem .6rem" }}><code>OPENAI_API_KEY</code></td>
+                  <td style={{ padding: ".4rem .6rem" }}>Chiave API provider OpenAI-compatible</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: ".4rem .6rem" }}><code>OPENAI_MODEL</code></td>
+                  <td style={{ padding: ".4rem .6rem" }}>Modello da usare (es. <code>openai/gpt-4o</code>)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </main>
       </div>
 
       {/* FOOTER */}
       <footer className="np-footer">
         <span>The News Distiller · Impostazioni</span>
-        <span>US-018 · EP-005</span>
+        <span>US-028 · EP-005</span>
         <span>Sessione: {user.email}</span>
       </footer>
     </div>

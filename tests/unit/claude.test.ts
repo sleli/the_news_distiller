@@ -8,14 +8,14 @@ jest.mock("@anthropic-ai/sdk", () => ({
   default: mockAnthropicConstructor,
 }));
 
-const mockFindUnique = jest.fn();
+const mockOpenAICreate = jest.fn();
+const mockOpenAIConstructor = jest.fn(() => ({
+  chat: { completions: { create: mockOpenAICreate } },
+}));
 
-jest.mock("@/lib/prisma", () => ({
-  prisma: {
-    appSettings: {
-      findUnique: mockFindUnique,
-    },
-  },
+jest.mock("openai", () => ({
+  __esModule: true,
+  default: mockOpenAIConstructor,
 }));
 
 const mockSpawn = jest.fn();
@@ -27,7 +27,6 @@ jest.mock("child_process", () => ({
 import { EventEmitter } from "events";
 import { TONE_INSTRUCTIONS } from "@/lib/tones";
 
-// Helper to build a fake spawn process
 function fakeProcess(opts: {
   stdoutData?: string;
   stderrData?: string;
@@ -82,10 +81,16 @@ describe("src/lib/claude.ts", () => {
 
   beforeEach(() => {
     jest.resetModules();
-    process.env = { ...ORIGINAL_ENV, ANTHROPIC_API_KEY: "test-key" };
+    process.env = { ...ORIGINAL_ENV };
+    delete process.env.AI_PROVIDER;
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_BASE_URL;
+    delete process.env.OPENAI_MODEL;
     mockCreate.mockReset();
     mockAnthropicConstructor.mockClear();
-    mockFindUnique.mockReset();
+    mockOpenAICreate.mockReset();
+    mockOpenAIConstructor.mockClear();
     mockSpawn.mockReset();
   });
 
@@ -93,11 +98,33 @@ describe("src/lib/claude.ts", () => {
     process.env = ORIGINAL_ENV;
   });
 
-  // ── TASK-05: modalità API_KEY ─────────────────────────────────────────────
+  // ── dispatching default — claude_subprocess ──────────────────────────────
 
-  describe("modalità API_KEY", () => {
+  describe("default provider (claude_subprocess)", () => {
+    it("usa claude_subprocess quando AI_PROVIDER non è impostato", async () => {
+      mockSpawn.mockReturnValueOnce(
+        fakeProcess({ stdoutData: JSON.stringify(VALID_DISTILL_RESULT) })
+      );
+
+      const { distillArticles } = await import("@/lib/claude");
+      const result = await distillArticles(SAMPLE_ARTICLES, "topic", "neutro");
+
+      expect(result).toEqual(VALID_DISTILL_RESULT);
+      expect(mockSpawn).toHaveBeenCalledWith("claude", ["-p"], expect.any(Object));
+      expect(mockCreate).not.toHaveBeenCalled();
+      expect(mockOpenAICreate).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── provider anthropic ───────────────────────────────────────────────────
+
+  describe("provider anthropic", () => {
+    beforeEach(() => {
+      process.env.AI_PROVIDER = "anthropic";
+      process.env.ANTHROPIC_API_KEY = "test-key";
+    });
+
     it("happy path — restituisce DistillResult valido da un tool_use block", async () => {
-      mockFindUnique.mockResolvedValueOnce({ id: "default", claudeMode: "API_KEY" });
       mockCreate.mockResolvedValueOnce({
         content: [
           {
@@ -117,29 +144,7 @@ describe("src/lib/claude.ts", () => {
       expect(mockSpawn).not.toHaveBeenCalled();
     });
 
-    it("fallback AppSettings null — usa API_KEY quando il record non esiste", async () => {
-      mockFindUnique.mockResolvedValueOnce(null);
-      mockCreate.mockResolvedValueOnce({
-        content: [
-          {
-            type: "tool_use",
-            id: "tool_02",
-            name: "extract_distillation",
-            input: VALID_DISTILL_RESULT,
-          },
-        ],
-      });
-
-      const { distillArticles } = await import("@/lib/claude");
-      const result = await distillArticles(SAMPLE_ARTICLES, "topic", "neutro");
-
-      expect(result).toEqual(VALID_DISTILL_RESULT);
-      expect(mockCreate).toHaveBeenCalledTimes(1);
-      expect(mockSpawn).not.toHaveBeenCalled();
-    });
-
     it("parametrizzazione tono — il system prompt contiene l'istruzione del tono richiesto", async () => {
-      mockFindUnique.mockResolvedValueOnce({ id: "default", claudeMode: "API_KEY" });
       mockCreate.mockResolvedValueOnce({
         content: [
           {
@@ -158,9 +163,8 @@ describe("src/lib/claude.ts", () => {
       expect(callArgs.system).toContain(TONE_INSTRUCTIONS["analitico"]);
     });
 
-    it("chiave mancante — lancia un errore API_KEY se ANTHROPIC_API_KEY non è configurata", async () => {
+    it("chiave mancante — lancia un errore se ANTHROPIC_API_KEY non è configurata", async () => {
       delete process.env.ANTHROPIC_API_KEY;
-      mockFindUnique.mockResolvedValueOnce({ id: "default", claudeMode: "API_KEY" });
 
       const { distillArticles } = await import("@/lib/claude");
       await expect(
@@ -169,7 +173,6 @@ describe("src/lib/claude.ts", () => {
     });
 
     it("tool use assente — lancia un errore se la risposta non contiene un tool_use block", async () => {
-      mockFindUnique.mockResolvedValueOnce({ id: "default", claudeMode: "API_KEY" });
       mockCreate.mockResolvedValueOnce({
         content: [{ type: "text", text: "Risposta in testo libero" }],
       });
@@ -181,11 +184,118 @@ describe("src/lib/claude.ts", () => {
     });
   });
 
-  // ── TASK-06: modalità CLI_SUBPROCESS ─────────────────────────────────────
+  // ── provider openai_compatible ───────────────────────────────────────────
 
-  describe("modalità CLI_SUBPROCESS", () => {
+  describe("provider openai_compatible", () => {
+    beforeEach(() => {
+      process.env.AI_PROVIDER = "openai_compatible";
+      process.env.OPENAI_API_KEY = "test-openai-key";
+      process.env.OPENAI_BASE_URL = "https://openrouter.ai/api/v1";
+      process.env.OPENAI_MODEL = "openai/gpt-4o";
+    });
+
+    it("happy path — restituisce DistillResult valido da JSON mode", async () => {
+      mockOpenAICreate.mockResolvedValueOnce({
+        choices: [
+          {
+            message: { content: JSON.stringify(VALID_DISTILL_RESULT) },
+          },
+        ],
+      });
+
+      const { distillArticles } = await import("@/lib/claude");
+      const result = await distillArticles(SAMPLE_ARTICLES, "riforma pensioni", "neutro");
+
+      expect(result).toEqual(VALID_DISTILL_RESULT);
+      expect(mockOpenAIConstructor).toHaveBeenCalledWith({
+        apiKey: "test-openai-key",
+        baseURL: "https://openrouter.ai/api/v1",
+      });
+      expect(mockOpenAICreate).toHaveBeenCalledTimes(1);
+      const callArgs = mockOpenAICreate.mock.calls[0][0];
+      expect(callArgs.model).toBe("openai/gpt-4o");
+      expect(callArgs.response_format).toEqual({ type: "json_object" });
+      expect(mockSpawn).not.toHaveBeenCalled();
+      expect(mockCreate).not.toHaveBeenCalled();
+    });
+
+    it("valida l'output con validateDistillResult()", async () => {
+      mockOpenAICreate.mockResolvedValueOnce({
+        choices: [
+          {
+            message: { content: JSON.stringify({ summary: "", positions: [], sources: [] }) },
+          },
+        ],
+      });
+
+      const { distillArticles } = await import("@/lib/claude");
+      await expect(
+        distillArticles(SAMPLE_ARTICLES, "topic", "neutro")
+      ).rejects.toThrow(/Payload Claude non valido/);
+    });
+
+    it("risposta vuota — lancia un errore", async () => {
+      mockOpenAICreate.mockResolvedValueOnce({
+        choices: [{ message: { content: null } }],
+      });
+
+      const { distillArticles } = await import("@/lib/claude");
+      await expect(
+        distillArticles(SAMPLE_ARTICLES, "topic", "neutro")
+      ).rejects.toThrow(/non ha restituito contenuto/);
+    });
+
+    it("risposta non-JSON — lancia un errore di parsing", async () => {
+      mockOpenAICreate.mockResolvedValueOnce({
+        choices: [{ message: { content: "testo non JSON" } }],
+      });
+
+      const { distillArticles } = await import("@/lib/claude");
+      await expect(
+        distillArticles(SAMPLE_ARTICLES, "topic", "neutro")
+      ).rejects.toThrow(/parsare/);
+    });
+
+    it("env vars mancanti — lancia errore con elenco variabili", async () => {
+      delete process.env.OPENAI_API_KEY;
+      delete process.env.OPENAI_MODEL;
+
+      const { distillArticles } = await import("@/lib/claude");
+      await expect(
+        distillArticles(SAMPLE_ARTICLES, "topic", "neutro")
+      ).rejects.toThrow(/OPENAI_API_KEY.*OPENAI_MODEL/);
+    });
+  });
+
+  // ── validateProviderEnv ──────────────────────────────────────────────────
+
+  describe("validateProviderEnv", () => {
+    it("claude_subprocess non richiede env vars", async () => {
+      const { validateProviderEnv } = await import("@/lib/claude");
+      expect(() => validateProviderEnv("claude_subprocess")).not.toThrow();
+    });
+
+    it("anthropic senza ANTHROPIC_API_KEY lancia errore", async () => {
+      const { validateProviderEnv } = await import("@/lib/claude");
+      expect(() => validateProviderEnv("anthropic")).toThrow("ANTHROPIC_API_KEY");
+    });
+
+    it("openai_compatible senza tutte le vars elenca quelle mancanti", async () => {
+      const { validateProviderEnv } = await import("@/lib/claude");
+      expect(() => validateProviderEnv("openai_compatible")).toThrow(
+        /OPENAI_API_KEY.*OPENAI_BASE_URL.*OPENAI_MODEL/
+      );
+    });
+  });
+
+  // ── modalità CLI_SUBPROCESS (via AI_PROVIDER) ───────────────────────────
+
+  describe("provider claude_subprocess (esplicito)", () => {
+    beforeEach(() => {
+      process.env.AI_PROVIDER = "claude_subprocess";
+    });
+
     it("happy path — invoca spawn e parsa lo stdout come DistillResult", async () => {
-      mockFindUnique.mockResolvedValueOnce({ id: "default", claudeMode: "CLI_SUBPROCESS" });
       mockSpawn.mockReturnValueOnce(
         fakeProcess({ stdoutData: JSON.stringify(VALID_DISTILL_RESULT) })
       );
@@ -198,20 +308,7 @@ describe("src/lib/claude.ts", () => {
       expect(mockCreate).not.toHaveBeenCalled();
     });
 
-    it("scrive il prompt su stdin e chiude il pipe", async () => {
-      mockFindUnique.mockResolvedValueOnce({ id: "default", claudeMode: "CLI_SUBPROCESS" });
-      const proc = fakeProcess({ stdoutData: JSON.stringify(VALID_DISTILL_RESULT) });
-      mockSpawn.mockReturnValueOnce(proc);
-
-      const { distillArticles } = await import("@/lib/claude");
-      await distillArticles(SAMPLE_ARTICLES, "topic", "neutro");
-
-      expect(proc.stdin.write).toHaveBeenCalledTimes(1);
-      expect(proc.stdin.end).toHaveBeenCalledTimes(1);
-    });
-
-    it("ENOENT — lancia ClaudeCliNotFoundError con messaggio descrittivo", async () => {
-      mockFindUnique.mockResolvedValueOnce({ id: "default", claudeMode: "CLI_SUBPROCESS" });
+    it("ENOENT — lancia ClaudeCliNotFoundError", async () => {
       const enoentError = Object.assign(new Error("spawn claude ENOENT"), { code: "ENOENT" });
       mockSpawn.mockReturnValueOnce(fakeProcess({ errorEvent: enoentError }));
 
@@ -221,19 +318,7 @@ describe("src/lib/claude.ts", () => {
       ).rejects.toBeInstanceOf(ClaudeCliNotFoundError);
     });
 
-    it("ENOENT — il messaggio di errore menziona il PATH e la CLI", async () => {
-      mockFindUnique.mockResolvedValueOnce({ id: "default", claudeMode: "CLI_SUBPROCESS" });
-      const enoentError = Object.assign(new Error("spawn claude ENOENT"), { code: "ENOENT" });
-      mockSpawn.mockReturnValueOnce(fakeProcess({ errorEvent: enoentError }));
-
-      const { distillArticles } = await import("@/lib/claude");
-      await expect(
-        distillArticles(SAMPLE_ARTICLES, "topic", "neutro")
-      ).rejects.toThrow(/PATH/);
-    });
-
     it("exit code non-zero — lancia un errore generico", async () => {
-      mockFindUnique.mockResolvedValueOnce({ id: "default", claudeMode: "CLI_SUBPROCESS" });
       mockSpawn.mockReturnValueOnce(
         fakeProcess({ stdoutData: "", stderrData: "fatal error", exitCode: 1 })
       );
@@ -245,25 +330,12 @@ describe("src/lib/claude.ts", () => {
     });
 
     it("stdout non-JSON — lancia un errore di parsing", async () => {
-      mockFindUnique.mockResolvedValueOnce({ id: "default", claudeMode: "CLI_SUBPROCESS" });
       mockSpawn.mockReturnValueOnce(fakeProcess({ stdoutData: "testo non JSON" }));
 
       const { distillArticles } = await import("@/lib/claude");
       await expect(
         distillArticles(SAMPLE_ARTICLES, "topic", "neutro")
       ).rejects.toThrow(/parsare/);
-    });
-
-    it("stdout JSON invalido rispetto allo schema — lancia un errore di validazione", async () => {
-      mockFindUnique.mockResolvedValueOnce({ id: "default", claudeMode: "CLI_SUBPROCESS" });
-      mockSpawn.mockReturnValueOnce(
-        fakeProcess({ stdoutData: JSON.stringify({ summary: "", positions: [], sources: [] }) })
-      );
-
-      const { distillArticles } = await import("@/lib/claude");
-      await expect(
-        distillArticles(SAMPLE_ARTICLES, "topic", "neutro")
-      ).rejects.toThrow(/Payload Claude non valido/);
     });
   });
 
@@ -321,25 +393,6 @@ describe("src/lib/claude.ts", () => {
       const { validateDistillResult } = await import("@/lib/claude");
       expect(() => validateDistillResult("stringa non valida")).toThrow();
     });
-
-    it("distillArticles con payload tool_use invalido — lancia errore di validazione", async () => {
-      mockFindUnique.mockResolvedValueOnce({ id: "default", claudeMode: "API_KEY" });
-      mockCreate.mockResolvedValueOnce({
-        content: [
-          {
-            type: "tool_use",
-            id: "tool_invalid",
-            name: "extract_distillation",
-            input: { summary: "", positions: [], sources: [] },
-          },
-        ],
-      });
-
-      const { distillArticles } = await import("@/lib/claude");
-      await expect(
-        distillArticles(SAMPLE_ARTICLES, "topic", "neutro")
-      ).rejects.toThrow(/Payload Claude non valido/);
-    });
   });
 
   // ── buildDistillPrompt ────────────────────────────────────────────────────
@@ -359,12 +412,12 @@ describe("src/lib/claude.ts", () => {
       expect(toolDef.name).toBe("extract_distillation");
     });
 
-    it("non ha side effect — non tocca SDK né prisma", async () => {
+    it("non ha side effect — non tocca SDK né spawn", async () => {
       const { buildDistillPrompt } = await import("@/lib/claude");
       buildDistillPrompt(SAMPLE_ARTICLES, "topic", "critico");
 
       expect(mockCreate).not.toHaveBeenCalled();
-      expect(mockFindUnique).not.toHaveBeenCalled();
+      expect(mockOpenAICreate).not.toHaveBeenCalled();
       expect(mockSpawn).not.toHaveBeenCalled();
     });
   });

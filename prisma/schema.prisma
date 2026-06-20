@@ -58,10 +58,3 @@ model DistillSource {
   @@map("distill_sources")
 }
 
-model AppSettings {
-  id         String   @id @default("default")
-  claudeMode String   @default("API_KEY")
-  updatedAt  DateTime @updatedAt
-
-  @@map("app_settings")
-}

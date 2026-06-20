@@ -21,9 +21,6 @@ afterAll(async () => {
   await prisma.user.deleteMany({
     where: { email: { startsWith: TEST_PREFIX } },
   });
-  await prisma.appSettings.deleteMany({
-    where: { id: { startsWith: TEST_PREFIX } },
-  });
   await prisma.$disconnect();
 });
 
@@ -162,28 +159,3 @@ describe("PostgreSQL CRUD — DistillJob + DistillSource", () => {
   });
 });
 
-describe("PostgreSQL CRUD — AppSettings", () => {
-  const settingsId = `${TEST_PREFIX}settings`;
-
-  it("crea app settings", async () => {
-    const settings = await prisma.appSettings.create({
-      data: { id: settingsId, claudeMode: "API_KEY" },
-    });
-    expect(settings.claudeMode).toBe("API_KEY");
-  });
-
-  it("aggiorna app settings", async () => {
-    const settings = await prisma.appSettings.update({
-      where: { id: settingsId },
-      data: { claudeMode: "BYOK" },
-    });
-    expect(settings.claudeMode).toBe("BYOK");
-  });
-
-  it("legge app settings", async () => {
-    const settings = await prisma.appSettings.findUnique({
-      where: { id: settingsId },
-    });
-    expect(settings!.claudeMode).toBe("BYOK");
-  });
-});

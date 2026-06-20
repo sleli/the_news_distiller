@@ -6,7 +6,7 @@ epic:
   title: Configurazione e Personalizzazione
 priority: HIGH
 points: 5
-status: PLANNED
+status: REVIEW
 body: |-
   #### US-028: Supporto provider AI configurabile via variabili d'ambiente
 

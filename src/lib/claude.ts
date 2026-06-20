@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { spawn } from "child_process";
 import { ToneKey, TONE_INSTRUCTIONS } from "./tones";
-import { prisma } from "./prisma";
 
 export type ArticleInput = {
   title: string;
@@ -27,7 +27,29 @@ export type DistillResult = {
   sources: DistillSource[];
 };
 
-// TASK-01: lazy initialization — avoids crash at import when ANTHROPIC_API_KEY is absent (CLI_SUBPROCESS mode)
+export type AIProvider = "anthropic" | "openai_compatible" | "claude_subprocess";
+
+export function validateProviderEnv(provider: AIProvider): void {
+  if (provider === "anthropic") {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error(
+        "AI_PROVIDER=anthropic richiede la variabile d'ambiente ANTHROPIC_API_KEY."
+      );
+    }
+  } else if (provider === "openai_compatible") {
+    const missing: string[] = [];
+    if (!process.env.OPENAI_API_KEY) missing.push("OPENAI_API_KEY");
+    if (!process.env.OPENAI_BASE_URL) missing.push("OPENAI_BASE_URL");
+    if (!process.env.OPENAI_MODEL) missing.push("OPENAI_MODEL");
+    if (missing.length > 0) {
+      throw new Error(
+        `AI_PROVIDER=openai_compatible richiede le variabili d'ambiente: ${missing.join(", ")}.`
+      );
+    }
+  }
+}
+
+// lazy initialization — avoids crash at import when ANTHROPIC_API_KEY is absent
 let _anthropicClient: Anthropic | null = null;
 
 function getAnthropicClient(): Anthropic {
@@ -178,22 +200,46 @@ export async function distillViaCLI(
   });
 }
 
-// TASK-04: dispatch based on AppSettings.claudeMode
-export async function distillArticles(
-  articles: ArticleInput[],
-  topic: string,
-  tone: ToneKey
+export async function distillViaOpenAI(
+  systemPrompt: string,
+  userMessage: string
 ): Promise<DistillResult> {
-  const settings = await prisma.appSettings.findUnique({ where: { id: "default" } });
-  const claudeMode = settings?.claudeMode ?? "API_KEY";
+  const client = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    baseURL: process.env.OPENAI_BASE_URL,
+  });
 
-  const { systemPrompt, userMessage, toolDef } = buildDistillPrompt(articles, topic, tone);
+  const response = await client.chat.completions.create({
+    model: process.env.OPENAI_MODEL!,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
+    ],
+    response_format: { type: "json_object" },
+  });
 
-  if (claudeMode === "CLI_SUBPROCESS") {
-    return distillViaCLI(systemPrompt, userMessage);
+  const content = response.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("Il provider OpenAI-compatible non ha restituito contenuto nella risposta.");
   }
 
-  // API_KEY branch — original behavior
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error(
+      `Impossibile parsare l'output del provider OpenAI-compatible come JSON: ${content.substring(0, 200)}`
+    );
+  }
+
+  return validateDistillResult(parsed);
+}
+
+export async function distillViaAnthropic(
+  systemPrompt: string,
+  userMessage: string,
+  toolDef: Anthropic.Tool
+): Promise<DistillResult> {
   const client = getAnthropicClient();
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
@@ -210,6 +256,28 @@ export async function distillArticles(
   }
 
   return validateDistillResult(toolUse.input);
+}
+
+export async function distillArticles(
+  articles: ArticleInput[],
+  topic: string,
+  tone: ToneKey
+): Promise<DistillResult> {
+  const provider = (process.env.AI_PROVIDER ?? "claude_subprocess") as AIProvider;
+  validateProviderEnv(provider);
+
+  const { systemPrompt, userMessage, toolDef } = buildDistillPrompt(articles, topic, tone);
+
+  switch (provider) {
+    case "claude_subprocess":
+      return distillViaCLI(systemPrompt, userMessage);
+    case "anthropic":
+      return distillViaAnthropic(systemPrompt, userMessage, toolDef);
+    case "openai_compatible":
+      return distillViaOpenAI(systemPrompt, userMessage);
+    default:
+      throw new Error(`Provider AI non supportato: ${provider}`);
+  }
 }
 
 export function validateDistillResult(input: unknown): DistillResult {

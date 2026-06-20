@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isValidTone } from "@/lib/tones";
+import { isValidTone, ToneKey } from "@/lib/tones";
+import { searchArticles } from "@/lib/tavily";
+import { distillArticles } from "@/lib/claude";
+import { sendDistillEmail } from "@/lib/email";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -80,8 +83,62 @@ export async function POST(request: Request) {
     data: { userId: user.id, topic, tone },
   });
 
+  processJob(job.id, topic, tone as ToneKey, user.id).catch(() => {});
+
   return NextResponse.json(
     { jobId: job.id, message: "Richiesta in coda. Riceverai una email al completamento." },
     { status: 201 }
   );
+}
+
+async function processJob(jobId: string, topic: string, tone: ToneKey, userId: string) {
+  try {
+    await prisma.distillJob.update({
+      where: { id: jobId },
+      data: { status: "RUNNING" },
+    });
+
+    const articles = await searchArticles(topic, 10);
+
+    const result = await distillArticles(articles, topic, tone);
+
+    await prisma.distillJob.update({
+      where: { id: jobId },
+      data: {
+        status: "DONE",
+        result: result as unknown as Record<string, unknown>,
+      },
+    });
+
+    const sourcesToCreate = result.sources.map((s, i) => {
+      const position = result.positions.find((p) =>
+        p.sourceRefs.includes(s.title) || p.sourceRefs.includes(`[${i + 1}]`) || p.sourceRefs.includes(String(i + 1))
+      );
+      return {
+        jobId,
+        url: s.url,
+        title: s.title,
+        excerpt: "",
+        position: position?.label ?? "Generale",
+      };
+    });
+
+    if (sourcesToCreate.length > 0) {
+      await prisma.distillSource.createMany({ data: sourcesToCreate });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (user?.email) {
+      await sendDistillEmail(user.email, topic, result, jobId).catch(console.error);
+    }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : "Errore sconosciuto";
+    await prisma.distillJob.update({
+      where: { id: jobId },
+      data: {
+        status: "FAILED",
+        result: { error: errorMessage },
+      },
+    }).catch(console.error);
+  }
 }

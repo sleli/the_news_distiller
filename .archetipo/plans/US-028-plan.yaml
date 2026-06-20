@@ -70,51 +70,59 @@ tasks:
     title: Installare il pacchetto openai
     description: Aggiungere la dipendenza `openai` al progetto con `npm install openai`. Verificare che il pacchetto sia disponibile per l'import.
     type: Impl
-    status: TODO
+    status: DONE
+    ref: TASK-01
   - id: TASK-02
     title: Aggiungere variabili d'ambiente in .env.example
     description: 'Documentare `AI_PROVIDER` (valori: `anthropic`, `openai_compatible`, `claude_subprocess`; default: `claude_subprocess`), `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL` in `.env.example` con commenti esplicativi.'
     type: Impl
-    status: TODO
+    status: DONE
+    ref: TASK-02
   - id: TASK-03
     title: Implementare distillViaOpenAI() e refactoring dispatching in claude.ts
     description: 'Creare la funzione `distillViaOpenAI()` che usa l''SDK `openai` con `baseURL`, `apiKey` e `model` da env vars, `response_format: { type: ''json_object'' }`, e valida l''output con `validateDistillResult()`. Aggiungere `validateProviderEnv()` per fail-fast su env vars mancanti. Refactoring di `distillArticles()`: rimuovere la lettura da `prisma.appSettings`, leggere `process.env.AI_PROVIDER` (default `claude_subprocess`), dispatch su 3 rami.'
     type: Impl
-    status: TODO
+    status: DONE
     dependencies:
       - TASK-01
+    ref: TASK-03
   - id: TASK-04
     title: Unit test per il nuovo dispatching e ramo openai_compatible
     description: 'Aggiornare `tests/unit/claude.test.ts`: rimuovere mock di `prisma.appSettings`, aggiungere test per i 3 rami via `process.env.AI_PROVIDER`, test per validazione env vars mancanti con messaggi espliciti, test per default a `claude_subprocess`, test per `distillViaOpenAI()` con mock dell''SDK OpenAI.'
     type: Test
-    status: TODO
+    status: DONE
     dependencies:
       - TASK-03
+    ref: TASK-04
   - id: TASK-05
     title: Rimuovere modello AppSettings da Prisma e codice correlato
     description: Rimuovere il modello `AppSettings` da `prisma/schema.prisma`. Rimuovere `src/app/api/settings/route.ts`. Eseguire `npx prisma db push` per sincronizzare. Rimuovere eventuali import residui di AppSettings nel codebase.
     type: Impl
-    status: TODO
+    status: DONE
     dependencies:
       - TASK-03
+    ref: TASK-05
   - id: TASK-06
     title: Aggiornare pagina Settings e SettingsForm
     description: Rimuovere il componente `SettingsForm.tsx` (o svuotarlo). Aggiornare `src/app/settings/page.tsx` rimuovendo la lettura delle AppSettings da DB, il selettore claudeMode, e il ticker relativo. La pagina può mostrare un messaggio informativo o restare come shell per future impostazioni.
     type: Impl
-    status: TODO
+    status: DONE
     dependencies:
       - TASK-05
+    ref: TASK-06
   - id: TASK-07
     title: Aggiornare/rimuovere test esistenti per Settings
     description: Aggiornare o rimuovere `tests/unit/SettingsForm.test.tsx`, `tests/integration/settings-api.test.ts`, e gli e2e Playwright relativi alle settings di claudeMode (`tests/e2e/settings.spec.ts`, `tests/e2e/demo__settings-claude-mode.spec.ts`).
     type: Test
-    status: TODO
+    status: DONE
     dependencies:
       - TASK-06
+    ref: TASK-07
   - id: TASK-08
     title: 'E2E Playwright: verifica rimozione selettore Settings'
     description: Scrivere un test e2e Playwright che accede a /settings e verifica che la sezione 'Modalità Claude' con le card di selezione non è più visibile. Video recording abilitato, output in `docs/test-results/US-028/`.
     type: Test
-    status: TODO
+    status: DONE
     dependencies:
       - TASK-06
+    ref: TASK-08
