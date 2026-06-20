@@ -528,7 +528,7 @@ export function DistillForm({ user, jobs = [] }: DistillFormProps) {
                             lineHeight: 1.3,
                           }}
                         >
-                          {isDone ? (
+                          {isDone || isFailed ? (
                             <a
                               href={`/distill/${job.id}`}
                               style={{ color: "var(--ink)", textDecoration: "underline" }}

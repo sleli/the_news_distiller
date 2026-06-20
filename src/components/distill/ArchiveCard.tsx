@@ -41,6 +41,7 @@ export function ArchiveCard({ job }: ArchiveCardProps) {
   const borderColor = STATUS_BORDER[job.status] ?? "#7A6035";
   const statusLabel = STATUS_LABEL[job.status] ?? job.status;
   const isDone = job.status === "DONE";
+  const isFailed = job.status === "FAILED";
   const isRunning = job.status === "RUNNING";
 
   const cardStyle: React.CSSProperties = {
@@ -69,7 +70,7 @@ export function ArchiveCard({ job }: ArchiveCardProps) {
           marginBottom: ".3rem",
         }}
       >
-        {isDone ? (
+        {isDone || isFailed ? (
           <Link
             href={`/distill/${job.id}`}
             data-testid="card-link"
@@ -152,13 +153,13 @@ export function ArchiveCard({ job }: ArchiveCardProps) {
             ↻ Aggiornamento automatico in corso…
           </span>
         )}
-        {isDone && (
+        {(isDone || isFailed) && (
           <Link
             href={`/distill/${job.id}`}
             data-testid="card-read-link"
             style={{ color: "var(--np-red)", textDecoration: "none", fontWeight: 700 }}
           >
-            Leggi →
+            {isFailed ? "Dettagli →" : "Leggi →"}
           </Link>
         )}
       </div>
