@@ -1,4 +1,4 @@
-import { getErrorMessage } from "@/app/distill/[id]/page";
+import { getErrorMessage } from "@/lib/distill-error";
 
 describe("getErrorMessage", () => {
   it("restituisce la stringa di errore quando result ha campo error non vuoto", () => {

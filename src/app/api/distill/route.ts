@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isValidTone, ToneKey } from "@/lib/tones";
@@ -106,7 +107,7 @@ async function processJob(jobId: string, topic: string, tone: ToneKey, userId: s
       where: { id: jobId },
       data: {
         status: "DONE",
-        result: result as unknown as Record<string, unknown>,
+        result: result as unknown as Prisma.InputJsonValue,
       },
     });
 

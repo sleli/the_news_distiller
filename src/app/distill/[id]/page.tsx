@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStatusLabel } from "@/lib/distill-status";
+import { getErrorMessage } from "@/lib/distill-error";
 import { DistillResultView } from "@/components/distill/DistillResultView";
 import { JobStatusPoller } from "@/components/distill/JobStatusPoller";
 import type { DistillResult } from "@/lib/claude";
@@ -144,19 +145,6 @@ function PageFooter() {
       <span>Milano, Italia</span>
     </footer>
   );
-}
-
-export function getErrorMessage(result: unknown): string | null {
-  if (
-    result !== null &&
-    typeof result === "object" &&
-    "error" in result &&
-    typeof (result as Record<string, unknown>).error === "string" &&
-    (result as Record<string, unknown>).error !== ""
-  ) {
-    return (result as Record<string, unknown>).error as string;
-  }
-  return null;
 }
 
 interface JobStatusViewProps {
