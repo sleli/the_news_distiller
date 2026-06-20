@@ -1,150 +1,80 @@
-# Archetipo Workshop
+# The News Distiller
 
-Questo è un workshop pratico in cui costruirai un prodotto digitale da zero usando l'AI come copilota e il framework [Archetipo](https://github.com/techreloaded-ar/archetipo) come guida metodologica. Il boilerplate di partenza include Next.js 15, SQLite via Prisma con auth email/password integrata, Tailwind CSS v4 e shadcn/ui: tutto già configurato per permetterti di concentrarti sul prodotto, non sull'infrastruttura.
+The News Distiller è un'applicazione web che trasforma qualsiasi argomento di attualità in una
+sintesi strutturata e tonalmente coerente. Inserisci un topic, scegli il tono di lettura e
+lascia che il sistema raccolga gli articoli, li analizzi con AI e restituisca un digest con
+riepilogo, punti di vista distinti e fonti citate.
 
-## 🚀 Installazione Rapida
+## Funzionalità principali
 
-Esegui lo script di setup per il tuo sistema operativo. **Lo script fa tutto in automatico** — installa la CLI Archetipo, esegue `archetipo init`, configura il backlog e le skill.
+- **Distillazione su richiesta** — Inserisci un argomento e scegli tra quattro toni: neutro,
+  analitico, didattico o critico.
+- **Raccolta automatica degli articoli** — Il sistema interroga Tavily per trovare le notizie
+  recenti più rilevanti sul topic.
+- **Analisi AI** — Claude (Anthropic) sintetizza gli articoli in un riepilogo generale e
+  identifica le posizioni/punti di vista presenti nel dibattito, con relative fonti.
+- **Job asincroni** — Le elaborazioni girano in background; ricevi una notifica email quando
+  il tuo digest è pronto.
+- **Archivio storico** — Consulta e gestisci tutte le distillazioni precedenti con tracciamento
+  dello stato (in coda, in elaborazione, completato, fallito).
+- **Argomento del giorno** — Il sistema suggerisce automaticamente un topic di tendenza per
+  ispirare la prossima ricerca.
+- **Configurazione backend AI** — Possibilità di alternare tra Anthropic API e Claude CLI in
+  base all'ambiente di esecuzione.
 
-**macOS / Linux**
+## Stack tecnico
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/techreloaded-ar/archetipo-workshop/main/setup.sh | bash
-```
-
-**Windows (PowerShell)**
-
-```powershell
-irm https://raw.githubusercontent.com/techreloaded-ar/archetipo-workshop/main/setup.ps1 | iex
-```
-
-Lo script ti chiederà:
-
-1. nome della cartella del progetto;
-2. strumenti AI sui quali installare le skill ufficiali di Archetipo.
-
-
-Al termine entra nella cartella del progetto:
-
-```bash
-cd nome-cartella-progetto
-```
-
-Poi prosegui con la [Guida Setup](#guida-setup) qui sotto per completare la configurazione (variabili d'ambiente, dipendenze).
-
-## Guida Setup
-
-### Backend backlog disponibili
-
-Il backlog è gestito su file locali (`.archetipo/`). Lo script configura automaticamente `connector: file`.
-
-### Prerequisiti comuni
-
-- **Node.js** v18+ installato ([nodejs.org](https://nodejs.org))
-- **Git** installato
-
----
-
-### 1. Configura le variabili d'ambiente
-
-Copia il file di esempio (già pronto per SQLite, nessun servizio esterno):
-
-```bash
-cp .env.example .env
-```
-
-`.env` contiene solo `DATABASE_URL="file:./dev.db"`: il database SQLite viene creato
-automaticamente in `prisma/dev.db` durante `npm install`.
-
----
-
-### 2. Installa le dipendenze
-
-```bash
-npm install
-```
-
-Durante `npm install` viene eseguito anche `postinstall`, che genera il Prisma Client e sincronizza lo schema con il database. Non sono necessari altri comandi Prisma durante il setup iniziale.
-
----
-
-### 3. Avvia il server di sviluppo
-
-```bash
-npm run dev
-```
-
-Apri [http://localhost:3000](http://localhost:3000) nel browser.
-
----
-
-### 4. Testa il login
-
-1. Vai su [http://localhost:3000/auth/signin](http://localhost:3000/auth/signin).
-2. Registrati con email e password: vieni reindirizzato alla dashboard protetta.
-3. Rifai logout e login con le stesse credenziali.
-
-
-
-## Troubleshooting
-
-### `archetipo` non viene trovato dopo l'installazione
-
-- L'installazione globale di npm potrebbe non essere nel PATH.
-- Su macOS/Linux: `export PATH="$(npm config get prefix)/bin:$PATH"`
-- Su Windows: aggiungi la cartella bin di npm al PATH di sistema.
-- In alternativa, installa con un node version manager come `nvm` o `fnm`.
-
-### "Can't reach database server"
-
-- Verifica che il file `.env` esista (`cp .env.example .env`).
-- Verifica che `DATABASE_URL="file:./dev.db"` sia presente in `.env`.
-
-### Dopo `npm install` compare un errore Prisma
-
-- Verifica che `DATABASE_URL` in `.env` sia corretta.
-- Prova a eseguire manualmente `npx prisma generate`.
-- Se hai modificato `prisma/schema.prisma`, esegui `npm run db:push`.
-
-## Deploy su Vercel
-
-### 1. Prepara il repository
-
-Assicurati che il codice sia pushato su GitHub e che il progetto faccia build correttamente in locale:
-
-```bash
-npm run build
-```
-
-### 2. Importa il progetto su Vercel
-
-1. Vai su [vercel.com](https://vercel.com) e accedi con il tuo account GitHub.
-2. Clicca **Add New -> Project**.
-3. Seleziona il repository dalla lista e autorizza l'accesso se richiesto.
-4. Vercel rileva automaticamente Next.js: lascia le impostazioni di default.
-
-### 3. Configura le variabili d'ambiente
-
-Prima di cliccare Deploy, aggiungi questa variabile nella sezione **Environment Variables**:
-
-| Variabile | Valore |
+| Layer | Tecnologia |
 |---|---|
-| `DATABASE_URL` | `file:./dev.db` |
+| Frontend / SSR | Next.js 15 (App Router, Turbopack) |
+| Database | SQLite via Prisma |
+| Auth | Custom email/password, sessioni su DB, cookie httpOnly |
+| UI | Tailwind CSS v4 + shadcn/ui |
+| News retrieval | Tavily API |
+| AI analysis | Anthropic Claude (API o CLI subprocess) |
+| Email | Resend |
 
-⚠️ SQLite usa il filesystem locale, che su Vercel (serverless) non è persistente: i dati vengono
-azzerati a ogni deploy/scale. Questa versione light è pensata per uso locale; per la produzione
-sostituisci `DATABASE_URL` con un database persistente (es. PostgreSQL o Turso/libSQL).
+## Sviluppo
 
-### 4. Clicca Deploy
+### Prerequisiti
 
-Vercel eseguirà build e deploy. Al termine riceverai un URL pubblico, per esempio `https://tuo-progetto.vercel.app`.
+- Node.js v18+
+- Chiavi API: `TAVILY_API_KEY`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY`
 
-### Troubleshooting Deploy
+### Setup
 
-**Build fallisce con errore Prisma "Cannot find module"**
+```bash
+cp .env.example .env   # configura le variabili d'ambiente
+npm install            # installa dipendenze e genera il Prisma Client
+npm run dev            # avvia su http://localhost:3000
+```
 
-- Vercel deve generare il Prisma Client durante il build. Verifica che `postinstall` in `package.json` includa `prisma generate`.
+### Variabili d'ambiente principali
 
-**Le modifiche alle variabili d'ambiente non hanno effetto**
+| Variabile | Descrizione |
+|---|---|
+| `DATABASE_URL` | Connessione SQLite (es. `file:./dev.db`) |
+| `TAVILY_API_KEY` | Chiave Tavily per la ricerca articoli |
+| `ANTHROPIC_API_KEY` | Chiave Anthropic per l'analisi AI |
+| `RESEND_API_KEY` | Chiave Resend per le email transazionali |
 
-- Dopo aver modificato le env su Vercel, fai un **Redeploy** da **Deployments -> ultimo deploy -> Redeploy**.
+### Comandi utili
+
+```bash
+npm run dev          # server di sviluppo con Turbopack
+npm run build        # build di produzione
+npm run db:push      # applica modifiche allo schema Prisma
+```
+
+## Metodologia di sviluppo
+
+Le funzionalità di questo progetto sono pianificate e implementate con
+[Archetipo](https://github.com/techreloaded-ar/archetipo), un framework metodologico per
+lo sviluppo AI-assisted. Il backlog, i piani tecnici e lo stato di avanzamento vivono
+in `.archetipo/`.
+
+## Note sul deploy
+
+SQLite usa il filesystem locale. Su ambienti serverless (es. Vercel) i dati non sono
+persistenti tra deploy. Per la produzione si consiglia di sostituire `DATABASE_URL` con
+un database persistente (PostgreSQL, Turso/libSQL).
