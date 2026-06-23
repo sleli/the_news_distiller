@@ -316,6 +316,9 @@ export function validateDistillResult(input: unknown): DistillResult {
     if (!Array.isArray(p.sourceRefs) || p.sourceRefs.length === 0) {
       throw new Error(`Payload Claude non valido — sourceRefs deve avere almeno 1 elemento: ${snippet}`);
     }
+    if (!p.sourceRefs.every((r) => typeof r === "string")) {
+      throw new Error(`Payload Claude non valido — sourceRefs deve contenere solo stringhe: ${snippet}`);
+    }
   }
 
   if (!Array.isArray(obj.sources)) {

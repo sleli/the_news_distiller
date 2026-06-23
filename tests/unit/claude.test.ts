@@ -375,6 +375,17 @@ describe("src/lib/claude.ts", () => {
       expect(() => validateDistillResult(payload)).toThrow(/sourceRefs/);
     });
 
+    it("posizione con sourceRefs contenente elementi non-stringa — lancia Error", async () => {
+      const { validateDistillResult } = await import("@/lib/claude");
+      const payload = {
+        ...VALID_PAYLOAD,
+        positions: [
+          { ...VALID_PAYLOAD.positions[0], sourceRefs: [1, 2] as unknown as string[] },
+        ],
+      };
+      expect(() => validateDistillResult(payload)).toThrow(/sourceRefs deve contenere solo stringhe/);
+    });
+
     it("fonte con url mancante — lancia Error", async () => {
       const { validateDistillResult } = await import("@/lib/claude");
       const payload = {

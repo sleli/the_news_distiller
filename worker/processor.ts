@@ -27,7 +27,11 @@ export async function processJobFull(jobId: string, prisma: PrismaClient): Promi
 
   const sourceData = articles.map((article) => {
     const matchingPosition = result.positions.find((p) =>
-      p.sourceRefs.some((ref) => ref.includes(article.url) || article.url.includes(ref))
+      p.sourceRefs.some(
+        (ref) =>
+          typeof ref === "string" &&
+          (ref.includes(article.url) || article.url.includes(ref))
+      )
     );
     return {
       jobId,
